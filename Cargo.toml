@@ -1,0 +1,12 @@
+[package]
+name = "opendalfs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+pyo3 = "0.22.2"
