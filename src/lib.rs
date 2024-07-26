@@ -1,13 +1,10 @@
-use pyo3::prelude::*;
+mod spec;
 
-#[pyfunction]
-pub fn hello_world() {
-    println!("Hello, world!");
-}
+use pyo3::prelude::*;
 
 #[pymodule]
 fn _opendalfs(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(hello_world, m)?)?;
+    m.add_class::<spec::OpendalFileSystem>()?;
 
     Ok(())
 }

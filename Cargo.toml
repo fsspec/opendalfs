@@ -9,4 +9,5 @@ crate-type = ["cdylib"]
 doc = false
 
 [dependencies]
-pyo3 = "0.22.2"
+pyo3 = { version = "0.22.2", features = ["gil-refs"] }
+opendal = "0.47.3"

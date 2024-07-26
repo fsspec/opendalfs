@@ -14,9 +14,15 @@ name = "opendalfs"
 readme = "README.md"
 # PyO3 doesn't support python 3.13 yet.
 requires-python = ">=3.11, < 3.13"
+dependencies = [
+    "fsspec",
+]
 
 [project.urls]
 Repository = "https://github.com/fsspec/opendalfs"
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
