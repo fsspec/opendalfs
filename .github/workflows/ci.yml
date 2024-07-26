@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  check-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check format
+        run: cargo fmt --all -- --check
+      - name: Check clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  check-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          pip install ruff
+      - name: Check format
+        run: |
+          ruff format . --diff
+      - name: Check style
+        run: |
+          ruff check .
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
