@@ -24,17 +24,25 @@ jobs:
 
   check-python:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        packages:
+          - "opendalfs",
+          - "services/memory"
     steps:
       - uses: actions/checkout@v4
       - name: Install tools
         run: |
           pip install ruff
       - name: Check format
+        working-directory: ${matrix.packages}
         run: |
           ruff format . --diff
       - name: Check style
+        working-directory: ${matrix.packages}
         run: |
           ruff check .
       - uses: PyO3/maturin-action@v1
         with:
           command: build
+          working-directory: ${matrix.packages}
