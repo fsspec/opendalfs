@@ -43,6 +43,7 @@ jobs:
         packages:
           - "opendalfs"
           - "services/memory"
+          - "services/s3"
     steps:
       - uses: actions/checkout@v4
       - uses: PyO3/maturin-action@v1
