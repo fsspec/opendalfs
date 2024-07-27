@@ -1,0 +1,13 @@
+[package]
+name = "opendalfs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doc = false
+
+[dependencies]
+pyo3.workspace = true
+opendal.workspace = true

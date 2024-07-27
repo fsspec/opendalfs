@@ -11,7 +11,7 @@ classifiers = [
 description = "fsspec opendalfs"
 license = { text = "Apache-2.0" }
 name = "opendalfs"
-readme = "README.md"
+readme = "../README.md"
 # PyO3 doesn't support python 3.13 yet.
 requires-python = ">=3.11, < 3.13"
 dependencies = [

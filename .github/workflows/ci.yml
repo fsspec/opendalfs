@@ -35,6 +35,17 @@ jobs:
       - name: Check style
         run: |
           ruff check .
+
+  check-pyo3:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        packages:
+          - "opendalfs"
+          - "services/memory"
+    steps:
+      - uses: actions/checkout@v4
       - uses: PyO3/maturin-action@v1
         with:
           command: build
+          working-directory: ${{ matrix.packages }}
