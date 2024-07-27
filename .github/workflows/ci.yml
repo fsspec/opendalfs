@@ -48,4 +48,4 @@ jobs:
       - uses: PyO3/maturin-action@v1
         with:
           command: build
-          working-directory: ${matrix.packages}
+          working-directory: ${{ matrix.packages }}
