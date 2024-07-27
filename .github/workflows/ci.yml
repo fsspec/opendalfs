@@ -24,6 +24,20 @@ jobs:
 
   check-python:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          pip install ruff
+      - name: Check format
+        run: |
+          ruff format . --diff
+      - name: Check style
+        run: |
+          ruff check .
+
+  check-pyo3:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         packages:
@@ -31,17 +45,6 @@ jobs:
           - "services/memory"
     steps:
       - uses: actions/checkout@v4
-      - name: Install tools
-        run: |
-          pip install ruff
-      - name: Check format
-        working-directory: ${matrix.packages}
-        run: |
-          ruff format . --diff
-      - name: Check style
-        working-directory: ${matrix.packages}
-        run: |
-          ruff check .
       - uses: PyO3/maturin-action@v1
         with:
           command: build
