@@ -1,10 +1,10 @@
 import pytest
-from opendalfs import OpendalFileSystem
+from opendalfs_service_memory import MemoryConfig
 
 
 @pytest.fixture
 def opendal_fs():
-    return OpendalFileSystem()
+    return MemoryConfig().build()
 
 
 # TODO: we need to find a way to make it work

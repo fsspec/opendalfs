@@ -9,6 +9,12 @@ pub struct OpendalFileSystem {
     op: Operator,
 }
 
+impl From<Operator> for OpendalFileSystem {
+    fn from(op: Operator) -> Self {
+        Self { op }
+    }
+}
+
 #[pymethods]
 impl OpendalFileSystem {
     #[new]
