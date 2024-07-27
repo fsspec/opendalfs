@@ -561,7 +561,7 @@ dependencies = [
 
 [[package]]
 name = "opendalfs"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "opendal",
  "pyo3",
@@ -569,7 +569,7 @@ dependencies = [
 
 [[package]]
 name = "opendalfs-service-memory"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "opendal",
  "opendalfs",
