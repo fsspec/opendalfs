@@ -1,10 +1,10 @@
-mod spec;
+mod fs;
 
 use pyo3::prelude::*;
 
 #[pymodule]
-fn _opendalfs(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<spec::OpendalFileSystem>()?;
+fn opendalfs(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<fs::OpendalFileSystem>()?;
 
     Ok(())
 }
