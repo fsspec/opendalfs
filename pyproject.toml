@@ -26,8 +26,6 @@ test = ["pytest"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-module-name = "opendalfs._opendalfs"
-python-source = "python"
 
 [tool.ruff.lint]
 ignore = ["F403", "F405"]
