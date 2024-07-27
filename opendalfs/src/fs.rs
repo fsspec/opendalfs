@@ -1,10 +1,8 @@
 use opendal::Operator;
-use opendal::Scheme;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
-use std::collections::HashMap;
 
-#[pyclass]
+#[pyclass(subclass)]
 pub struct OpendalFileSystem {
     op: Operator,
 }
@@ -17,13 +15,6 @@ impl From<Operator> for OpendalFileSystem {
 
 #[pymethods]
 impl OpendalFileSystem {
-    #[new]
-    fn new() -> Self {
-        Self {
-            op: Operator::via_map(Scheme::Memory, HashMap::new()).unwrap(),
-        }
-    }
-
     fn ls<'py>(&self, py: Python<'py>, path: &str) -> PyResult<pyo3::Bound<'py, PyList>> {
         let entries = self
             .op

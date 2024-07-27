@@ -1,10 +1,10 @@
 import pytest
-from opendalfs_service_memory import MemoryConfig
+from opendalfs_service_memory import MemoryFileSystem
 
 
 @pytest.fixture
 def opendal_fs():
-    return MemoryConfig().build()
+    return MemoryFileSystem(root="/tmp")
 
 
 # TODO: we need to find a way to make it work
