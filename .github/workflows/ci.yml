@@ -41,7 +41,7 @@ jobs:
     strategy:
       matrix:
         packages:
-          - "opendalfs",
+          - "opendalfs"
           - "services/memory"
     steps:
       - uses: actions/checkout@v4
