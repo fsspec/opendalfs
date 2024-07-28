@@ -11,9 +11,9 @@ def test_memory_fs():
 
 def test_s3_fs():
     # Default
-    OpendalFileSystem("s3",bucket="test", region="us-east-1")
+    OpendalFileSystem("s3", bucket="test", region="us-east-1")
     # With root
-    OpendalFileSystem("s3",root="/tmp", bucket="test", region="us-east-1")
+    OpendalFileSystem("s3", root="/tmp", bucket="test", region="us-east-1")
 
 
 @pytest.fixture
