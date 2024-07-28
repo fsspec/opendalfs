@@ -1,5 +1,6 @@
 import pytest
 from opendalfs import OpendalFileSystem
+from fsspec import AbstractFileSystem
 
 
 def test_memory_fs():
@@ -21,9 +22,8 @@ def opendal_fs():
     return OpendalFileSystem("memory", root="/tmp")
 
 
-# TODO: we need to find a way to make it work
-# def test_inheritance(opendal_fs):
-#    assert isinstance(opendal_fs, AbstractFileSystem)
+def test_inheritance(opendal_fs):
+   assert isinstance(opendal_fs, AbstractFileSystem)
 
 
 def test_ls(opendal_fs):
