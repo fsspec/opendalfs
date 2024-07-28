@@ -40,13 +40,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        packages:
-          - "opendalfs"
-          - "services/memory"
-          - "services/s3"
+        service:
+          - "memory"
+          - "s3"
     steps:
       - uses: actions/checkout@v4
       - uses: PyO3/maturin-action@v1
         with:
           command: build
-          working-directory: ${{ matrix.packages }}
+          working-directory: "crates/service-${{ matrix.service }}"

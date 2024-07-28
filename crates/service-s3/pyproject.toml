@@ -10,13 +10,11 @@ classifiers = [
 ]
 description = "fsspec opendalfs"
 license = { text = "Apache-2.0" }
-name = "opendalfs"
-readme = "../README.md"
+name = "opendalfs_service_s3"
+readme = "../../README.md"
 # PyO3 doesn't support python 3.13 yet.
 requires-python = ">=3.11, < 3.13"
-dependencies = [
-    "fsspec",
-]
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/fsspec/opendalfs"

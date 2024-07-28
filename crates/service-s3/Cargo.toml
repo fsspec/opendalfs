@@ -11,4 +11,4 @@ doc = false
 [dependencies]
 pyo3.workspace = true
 opendal = { workspace = true, features = ["services-s3"]}
-opendalfs.workspace = true
+opendalfs-core.workspace = true
