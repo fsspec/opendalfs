@@ -1,6 +1,6 @@
 use opendal::services::S3;
 use opendal::Operator;
-use opendalfs::OpendalFileSystem;
+use opendalfs_core::OpendalFileSystem;
 use pyo3::prelude::*;
 
 #[derive(Default)]

@@ -1,0 +1,16 @@
+[project]
+name = "opendalfs"
+version = "0.0.1"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+memory = ["opendalfs_service_memory"]
+s3 = ["opendalfs_service_s3"]
+test = ["pytest"]
