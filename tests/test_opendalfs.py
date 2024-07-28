@@ -23,7 +23,7 @@ def opendal_fs():
 
 
 def test_inheritance(opendal_fs):
-   assert isinstance(opendal_fs, AbstractFileSystem)
+    assert isinstance(opendal_fs, AbstractFileSystem)
 
 
 def test_ls(opendal_fs):
