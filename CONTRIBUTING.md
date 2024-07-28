@@ -4,28 +4,17 @@ opendalfs is a hybrid of Rust and Python. The underlying implementation is writt
 
 The overall structure of the project is as follows:
 
-```text
-             +--------------------------------+
-             |  opendalfs.OpendalFileSystem   |
-             +--------------------------------+
-                            |
-      +--------------+------+-------+-------------+
-      |              |              |             :
-+-----v-----+ +------v------+ +-----v-----+ +-----v-----+
-|   Memory  | |     S3      | |     FS    | |    ...    |
-| FileSystem| | FileSystem  | | FileSystem| | FileSystem|
-+-----+-----+ +------+------+ +-----+-----+ +-----+-----+
-      |              |              |             :
-      |              |              |             :
-      +--------------+--------------+-------------+
-                            |
-                    +-------v--------+
-                    | opendalfs_core |
-                    +-------+-------+
-                            |
-                    +-------v--------+
-                    | Apache OpenDAL |
-                    +----------------+
+```mermaid
+graph TD;
+    opendalfs.OpendalFileSystem -- import --> MemoryFileSystem;
+    opendalfs.OpendalFileSystem -- import --> S3FileSystem;
+    opendalfs.OpendalFileSystem -- import --> FsFileSystem;
+    opendalfs.OpendalFileSystem -- import --> ...FileSystem;
+    MemoryFileSystem -- use --> opendalfs-core;
+    S3FileSystem -- use --> opendalfs-core;
+    FsFileSystem -- use --> opendalfs-core;
+    ...FileSystem -- use --> opendalfs-core;
+    opendalfs-core -- use -->opendal["Apache OpenDAL"];
 ```
 
 - `opendalfs` is the python interface which will implement `fsspec` API and interact with services.
