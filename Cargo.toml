@@ -9,5 +9,5 @@ rust-version = "1.75"
 
 [workspace.dependencies]
 pyo3 = { version = "0.22.2", features = ["gil-refs"] }
-opendal = { version = "0.47.3", default-features = false }
+opendal = { version = "0.48", default-features = false }
 opendalfs-core = { path = "crates/core" }
