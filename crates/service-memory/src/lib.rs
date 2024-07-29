@@ -1,25 +1,22 @@
-use opendal::services::Memory;
+use opendal::services::MemoryConfig;
 use opendal::Operator;
 use opendalfs_core::OpendalFileSystem;
 use pyo3::prelude::*;
 
 #[derive(Default)]
 #[pyclass(extends=OpendalFileSystem)]
-pub struct MemoryFileSystem {
-    root: Option<String>,
-}
+pub struct MemoryFileSystem;
 
 #[pymethods]
 impl MemoryFileSystem {
     #[new]
     #[pyo3(signature = (root=None))]
     pub fn new(root: Option<String>) -> (Self, OpendalFileSystem) {
-        let cfg = MemoryFileSystem { root };
+        let mut cfg = MemoryConfig::default();
+        cfg.root = root;
 
-        let mut builder = Memory::default();
-        builder.root(&cfg.root.clone().unwrap_or_default());
-        let op = Operator::new(builder).unwrap().finish();
-        (cfg, OpendalFileSystem::from(op))
+        let op = Operator::from_config(cfg).unwrap().finish();
+        (MemoryFileSystem, OpendalFileSystem::from(op))
     }
 }
 

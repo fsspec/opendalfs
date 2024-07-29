@@ -1,18 +1,11 @@
-use opendal::services::S3;
+use opendal::services::S3Config;
 use opendal::Operator;
 use opendalfs_core::OpendalFileSystem;
 use pyo3::prelude::*;
 
 #[derive(Default)]
 #[pyclass(extends=OpendalFileSystem)]
-pub struct S3FileSystem {
-    bucket: String,
-    region: String,
-    root: Option<String>,
-    endpoint: Option<String>,
-    access_key_id: Option<String>,
-    secret_access_key: Option<String>,
-}
+pub struct S3FileSystem;
 
 #[pymethods]
 impl S3FileSystem {
@@ -33,25 +26,16 @@ impl S3FileSystem {
         access_key_id: Option<String>,
         secret_access_key: Option<String>,
     ) -> (Self, OpendalFileSystem) {
-        let cfg = S3FileSystem {
-            root,
-            bucket,
-            region,
-            endpoint,
-            access_key_id,
-            secret_access_key,
-        };
+        let mut cfg = S3Config::default();
+        cfg.bucket = bucket;
+        cfg.region = Some(region);
+        cfg.root = root;
+        cfg.endpoint = endpoint;
+        cfg.access_key_id = access_key_id;
+        cfg.secret_access_key = secret_access_key;
 
-        let mut builder = S3::default();
-        builder.root(&cfg.root.clone().unwrap_or_default());
-        builder.endpoint(&cfg.endpoint.clone().unwrap_or_default());
-        builder.bucket(&cfg.bucket);
-        builder.region(&cfg.region);
-        builder.access_key_id(&cfg.access_key_id.clone().unwrap_or_default());
-        builder.secret_access_key(&cfg.secret_access_key.clone().unwrap_or_default());
-
-        let op = Operator::new(builder).unwrap().finish();
-        (cfg, OpendalFileSystem::from(op))
+        let op = Operator::from_config(cfg).unwrap().finish();
+        (S3FileSystem, OpendalFileSystem::from(op))
     }
 }
 
