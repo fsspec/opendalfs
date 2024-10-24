@@ -85,7 +85,13 @@ impl OpendalFileSystem {
         if recursive {
             self.op.blocking().remove_all(&path).unwrap();
         } else {
-            let entries = self.op.blocking().list(&path).unwrap();
+            let entries = self
+                .op
+                .blocking()
+                .list_with(&path)
+                .recursive(true)
+                .call()
+                .unwrap();
             let entries_without_path_itself = entries
                 .iter()
                 .filter(|entry| entry.path() != path)
