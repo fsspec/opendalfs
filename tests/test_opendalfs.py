@@ -58,7 +58,7 @@ def test_rmdir(opendal_fs):
     with pytest.raises(FileNotFoundError):
         opendal_fs.rmdir("/test/path")
     opendal_fs.rmdir("/test/path/", recursive=False)
-    with pytest.raises(ValueError):
+    with pytest.raises(FileExistsError):
         opendal_fs.rmdir("/test/another/", recursive=False)
     assert opendal_fs.ls("/test/") == ["test/another/"]
     opendal_fs.rmdir("/test/another/", recursive=True)

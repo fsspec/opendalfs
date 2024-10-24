@@ -99,7 +99,7 @@ impl OpendalFileSystem {
             if entries_without_path_itself.is_empty() {
                 self.op.blocking().delete(&path).unwrap();
             } else {
-                return Err(pyo3::exceptions::PyValueError::new_err(
+                return Err(pyo3::exceptions::PyFileExistsError::new_err(
                     "Directory is not empty",
                 ));
             }
