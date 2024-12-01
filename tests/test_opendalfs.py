@@ -1,6 +1,7 @@
 import pytest
-from opendalfs import OpendalFileSystem
 from fsspec import AbstractFileSystem
+
+from opendalfs import OpendalFileSystem
 
 
 def test_memory_fs():
@@ -63,3 +64,11 @@ def test_rmdir(opendal_fs):
     assert opendal_fs.ls("/test/") == ["test/another/"]
     opendal_fs.rmdir("/test/another/", recursive=True)
     assert opendal_fs.ls("/test/") == []
+
+
+def test_info(opendal_fs):
+    result = opendal_fs.info("/")
+    assert result == {"name": "/tmp/", "size": 0, "type": "directory"}
+
+    with pytest.raises(FileNotFoundError):
+        opendal_fs.info("/test_file")

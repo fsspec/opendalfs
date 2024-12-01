@@ -3,3 +3,4 @@ venv/
 *.so
 *.pyc
 .pdm-python
+.idea

@@ -1,7 +1,8 @@
-use opendal::raw::normalize_path;
-use opendal::Operator;
+use opendal::raw::{build_rooted_abs_path, normalize_path, normalize_root};
+use opendal::{EntryMode, ErrorKind, Operator};
+use pyo3::exceptions::{PyException, PyFileNotFoundError};
 use pyo3::prelude::*;
-use pyo3::types::PyList;
+use pyo3::types::{PyDict, PyList};
 
 #[pyclass(subclass)]
 pub struct OpendalFileSystem {
@@ -112,5 +113,29 @@ impl OpendalFileSystem {
             Ok(exists) => Ok(exists),
             Err(e) => Err(pyo3::exceptions::PyException::new_err(e.to_string())),
         }
+    }
+
+    fn info<'py>(&self, py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyDict>> {
+        let path = normalize_path(path);
+        let root = normalize_root(self.op.info().root());
+        let abs_path = build_rooted_abs_path(&root, &path);
+
+        let metadata = self.op.blocking().stat(&path).map_err(|e| match e.kind() {
+            ErrorKind::NotFound => PyFileNotFoundError::new_err(e.to_string()),
+            _ => PyException::new_err(e.to_string()),
+        })?;
+
+        let mode = match metadata.mode() {
+            EntryMode::FILE => "file",
+            EntryMode::DIR => "directory",
+            EntryMode::Unknown => "other",
+        };
+
+        let dict = PyDict::new_bound(py);
+        dict.set_item("name", abs_path)?;
+        dict.set_item("size", metadata.content_length())?;
+        dict.set_item("type", mode)?;
+
+        Ok(dict)
     }
 }
