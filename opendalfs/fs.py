@@ -28,13 +28,13 @@ class OpendalFileSystem(AbstractFileSystem):
         raise NotImplementedError
 
     def mkdir(self, path, create_parents=True, **kwargs):
-        raise NotImplementedError
+        return self.fs.mkdir(path, create_parents=create_parents, **kwargs)
 
     def mkdirs(self, path, exist_ok=False):
-        raise NotImplementedError
+        return self.fs.mkdirs(path, exist_ok=exist_ok)
 
-    def rmdir(self, path):
-        raise NotImplementedError
+    def rmdir(self, path, recursive=False):
+        return self.fs.rmdir(path, recursive=recursive)
 
     def ls(self, path, **kwargs):
         return self.fs.ls(path, **kwargs)
