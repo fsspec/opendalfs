@@ -40,7 +40,7 @@ class OpendalFileSystem(AbstractFileSystem):
         return self.fs.ls(path, **kwargs)
 
     def info(self, path, **kwargs):
-        raise NotImplementedError
+        return self.fs.info(path, **kwargs)
 
     def rm_file(self, path):
         raise NotImplementedError
