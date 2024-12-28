@@ -671,6 +671,7 @@ version = "0.0.1"
 dependencies = [
  "opendal",
  "pyo3",
+ "tokio",
 ]
 
 [[package]]
