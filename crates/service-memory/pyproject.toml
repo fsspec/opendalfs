@@ -3,12 +3,13 @@ build-backend = "maturin"
 requires = ["maturin>=1.0,<2.0"]
 
 [project]
+version = "0.1.0"
+description = "Memory service for fsspec opendalfs"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-description = "fsspec opendalfs"
 license = { text = "Apache-2.0" }
 name = "opendalfs_service_memory"
 readme = "../../README.md"
