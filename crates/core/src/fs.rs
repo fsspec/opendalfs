@@ -271,11 +271,7 @@ impl OpendalFileSystem {
         })
     }
 
-    /// Check if a path exists in the storage system
-    /// # Why three methods?
-    /// - S3-like storage systems can be inconsistent in path handling
-    /// - Different operations may have different permissions
-    /// - Need to handle both files and directories
+    /// Check if a path exists
     fn exists<'p>(&self, py: Python<'p>, path: &str) -> PyResult<Bound<'p, PyAny>> {
         let path = normalize_path(path);
         let op = self.op.clone();
