@@ -41,16 +41,10 @@ def test_s3_virtual_directories(s3_fs):
 
 
 def test_s3_bucket_operations(s3_fs):
-    """Test S3 bucket-level operations.
-
-    This test verifies that:
-    1. We can write to bucket root
-    2. Root listing works correctly
-    3. Files are properly accessible
-    """
+    """Test S3 bucket-level operations."""
     # Write file to bucket root
     content = b"test"
-    s3_fs.fs._write("root.txt", content)
+    s3_fs.write("root.txt", content)  # Use sync version
 
     # Verify file exists
     assert "root.txt" in s3_fs.ls("/")
@@ -61,12 +55,7 @@ def test_s3_bucket_operations(s3_fs):
 
 
 def test_s3_special_characters(s3_fs):
-    """Test S3 paths with special characters.
-
-    This test verifies that:
-    1. We can handle paths with spaces and special characters
-    2. Path normalization works correctly
-    """
+    """Test S3 paths with special characters."""
     paths = [
         "file with spaces.txt",
         "path/with/special/chars/!@#$.txt",
@@ -75,8 +64,8 @@ def test_s3_special_characters(s3_fs):
     content = b"test"
 
     for path in paths:
-        # Write and verify
-        s3_fs.fs._write(path, content)
+        # Write and verify (use sync version)
+        s3_fs.write(path, content)
         assert s3_fs.exists(path)
         with s3_fs.open(path, "rb") as f:
             assert f.read() == content

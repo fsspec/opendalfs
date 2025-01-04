@@ -21,6 +21,96 @@ graph TD;
 - `crates/core` is the Rust core implementation.
 - `crates/service-*` provides the service configurations and python packages that used by `opendalfs`.
 
+## Async/Sync Architecture
+
+### PyO3 Async Integration
+
+We use `pyo3-asyncio` to bridge between Rust futures and Python coroutines:
+
+```mermaid
+graph TD;
+    Python[Python Sync API] --> FSSpec[FSSpec sync_wrapper];
+    FSSpec --> AsyncFS[AsyncFileSystem];
+    AsyncFS --> PyO3[PyO3 Async Bridge];
+    PyO3 --> RustFut[Rust Future];
+    RustFut --> OpenDAL[OpenDAL Async];
+```
+
+1. **Rust Side (`fs.rs`)**:
+   - Uses `future_into_py` to convert Rust futures to Python awaitables
+   - Example:
+   ```rust
+   fn _write<'py>(&self, py: Python<'py>, path: &str, data: Vec<u8>) -> PyResult<&PyAny> {
+       let op = self.op.clone();
+       future_into_py(py, async move {
+           op.write(path, data).await.map_err(|e| PyException::new_err(e.to_string()))
+       })
+   }
+   ```
+
+2. **Python Side (`fs.py`)**:
+   - Implements both async and sync interfaces
+   - Uses `fsspec.asyn.AsyncFileSystem` as base class
+   - Example:
+   ```python
+   async def _write(self, path: str, data: bytes) -> None:
+       future = self.fs._write(path, data)
+       await self._call_rust(future)
+
+   def write(self, path: str, data: bytes) -> None:
+       return sync(self.loop, self._write, path, data)
+   ```
+
+### FSSpec Integration
+
+We follow FSSpec's async/sync patterns:
+
+1. **Async Methods**:
+   - Prefixed with `_` (e.g., `_write`, `_read`)
+   - Handle the actual async operations
+   - Called by sync wrappers or directly in async contexts
+
+2. **Sync Wrappers**:
+   - Use `fsspec.asyn.sync_wrapper` for simple methods
+   - Use `fsspec.asyn.sync` for complex operations
+   - Handle event loop management automatically
+
+3. **Event Loop Management**:
+   - FSSpec creates and manages the event loop
+   - Operations run in a dedicated IO thread
+   - Similar to s3fs implementation for consistency
+
+### Implementation Pattern
+
+When adding new functionality:
+
+1. **Rust Side**:
+   ```rust
+   fn method_name<'py>(&self, py: Python<'py>, ...) -> PyResult<&PyAny> {
+       future_into_py(py, async move {
+           // Async operation
+       })
+   }
+   ```
+
+2. **Python Side**:
+   ```python
+   async def _method_name(self, ...):
+       """Async implementation"""
+       future = self.fs.method_name(...)
+       return await self._call_rust(future)
+
+   def method_name(self, ...):
+       """Sync wrapper"""
+       return sync(self.loop, self._method_name, ...)
+   ```
+
+This architecture ensures:
+- Proper async/sync conversion between Rust and Python
+- Compatibility with FSSpec's patterns
+- Consistent behavior across storage backends
+- Efficient IO handling through dedicated event loops
+
 ## Rust
 
 The whole project is a rust workspace, most operations can handled by `cargo`.

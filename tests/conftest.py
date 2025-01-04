@@ -1,6 +1,7 @@
 import pytest
 from opendalfs import OpendalFileSystem
 import boto3
+import asyncio
 
 
 @pytest.fixture(scope="session")
@@ -31,13 +32,13 @@ def minio_server():
 
 @pytest.fixture
 def memory_fs():
-    """Create a memory filesystem for testing."""
-    return OpendalFileSystem("memory")
+    """Create a memory filesystem for testing sync operations."""
+    return OpendalFileSystem("memory", asynchronous=False)
 
 
 @pytest.fixture
 def s3_fs(minio_server):
-    """Create an S3 filesystem for testing using MinIO."""
+    """Create an S3 filesystem for testing sync operations."""
     from .utils.s3 import create_test_bucket, cleanup_bucket, verify_bucket
 
     fs = OpendalFileSystem(
@@ -47,6 +48,7 @@ def s3_fs(minio_server):
         region="us-east-1",
         access_key_id="minioadmin",
         secret_access_key="minioadmin",
+        asynchronous=False,
     )
 
     create_test_bucket()
@@ -64,3 +66,21 @@ def s3_fs(minio_server):
 
     yield fs
     cleanup_bucket()
+
+
+@pytest.fixture(scope="function")
+async def event_loop():
+    """Create an instance of the default event loop for each test case."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.mark.asyncio
+async def test_write_read(memory_fs, s3_fs):
+    """Test basic write and read operations."""
+    for fs in [memory_fs, s3_fs]:
+        content = b"test content"
+        await fs._write("test.txt", content)
+        result = await fs._read("test.txt")
+        assert result == content
