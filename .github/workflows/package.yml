@@ -17,7 +17,7 @@ on:
 jobs:
   check-rust:
     name: Rust Checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
 
   check-python:
     name: Python Checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -56,20 +56,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-latest]
         target: [x86_64, aarch64]
         service: [memory, s3]
         exclude:
           # Exclude aarch64 builds on x86 runners
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target: aarch64
           - os: macos-latest
             target: aarch64
         include:
           # Linux builds use manylinux
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target: x86_64
-            platform: manylinux_2_28_x86_64
+            platform: manylinux2014
           # macOS builds are native
           - os: macos-latest
             target: x86_64
@@ -89,6 +89,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.platform }}
+          container: quay.io/pypa/manylinux2014_x86_64  # Specify manylinux container
           args: --release --out dist
           command: build
           working-directory: crates/service-${{ matrix.service }}
@@ -115,7 +116,7 @@ jobs:
   verify-install:
     name: Verify Installation
     needs: build-packages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -151,7 +152,7 @@ jobs:
   # publish:
   #   name: Publish to PyPI
   #   needs: verify-install
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-24.04
   #   # Only run on tags
   #   if: startsWith(github.ref, 'refs/tags/')
   #   
