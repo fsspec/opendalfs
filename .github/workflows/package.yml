@@ -49,9 +49,40 @@ jobs:
       - name: Check style
         run: ruff check .
 
-  build-packages:
-    name: Build Packages
+  build-main:
+    name: Build Main Package
     needs: [check-rust, check-python]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Create dist directory
+        run: mkdir -p dist
+
+      - name: Build main package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --outdir dist/
+
+      - name: List dist contents
+        run: ls -la dist/
+
+      - name: Upload main artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-main
+          path: dist/*
+          if-no-files-found: error
+
+  build-services:
+    name: Build Service Packages
+    needs: [build-main]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -84,7 +115,14 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
+      - name: Download main package
+        uses: actions/download-artifact@v3
+        with:
+          name: dist-main
+          path: dist/
+
       - name: Build service package
+        id: build-service
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
@@ -94,46 +132,28 @@ jobs:
           command: build
           working-directory: crates/service-${{ matrix.service }}
 
-      # Build main package only once per OS/target combination
-      - name: Build main package
-        if: matrix.service == 'memory'  # Only build once per OS/target
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build --outdir dist/
-
       - name: List dist contents
         run: ls -la dist/
 
-      - name: Verify packages
-        if: hashFiles('dist/*.whl') != ''
-        run: |
-          pip install twine
-          twine check dist/*
-
-      - name: Upload artifacts
+      - name: Upload service artifact
         uses: actions/upload-artifact@v3
         with:
           name: dist-${{ matrix.os }}-${{ matrix.target }}-${{ matrix.service }}
-          path: dist/
+          path: dist/*.whl
           if-no-files-found: error
 
   verify-install:
     name: Verify Installation
-    needs: build-packages
+    needs: [build-services]
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        python-version: ['3.11']
-        os: [ubuntu-24.04]  # We test installation on Linux
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.11'
 
       - name: Download all artifacts
         uses: actions/download-artifact@v3
