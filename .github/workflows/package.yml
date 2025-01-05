@@ -60,17 +60,14 @@ jobs:
         target: [x86_64, aarch64]
         service: [memory, s3]
         exclude:
-          # Exclude aarch64 builds on x86 runners
           - os: ubuntu-24.04
             target: aarch64
           - os: macos-latest
             target: aarch64
         include:
-          # Linux builds use manylinux
           - os: ubuntu-24.04
             target: x86_64
             platform: manylinux2014
-          # macOS builds are native
           - os: macos-latest
             target: x86_64
             platform: native
@@ -84,24 +81,31 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Create dist directory
+        run: mkdir -p dist
+
       - name: Build service package
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.platform }}
-          container: quay.io/pypa/manylinux2014_x86_64  # Specify manylinux container
+          container: quay.io/pypa/manylinux2014_x86_64
           args: --release --out dist
           command: build
           working-directory: crates/service-${{ matrix.service }}
 
-      # Build main package only once per OS
+      # Build main package only once per OS/target combination
       - name: Build main package
-        if: matrix.service == 'memory'  # Only build once per OS
+        if: matrix.service == 'memory'  # Only build once per OS/target
         run: |
           python -m pip install --upgrade pip build
           python -m build --outdir dist/
 
+      - name: List dist contents
+        run: ls -la dist/
+
       - name: Verify packages
+        if: hashFiles('dist/*.whl') != ''
         run: |
           pip install twine
           twine check dist/*
@@ -117,33 +121,61 @@ jobs:
     name: Verify Installation
     needs: build-packages
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ['3.11']
+        os: [ubuntu-24.04]  # We test installation on Linux
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v3
         with:
           path: dist
 
+      - name: List downloaded artifacts
+        run: |
+          find dist -type f
+
       - name: Prepare dist directory
         run: |
           mkdir -p dist_combined
-          cp -r dist/*/* dist_combined/
+          # First copy service packages
+          cp -r dist/dist-${{ matrix.os }}-x86_64-memory/* dist_combined/
+          cp -r dist/dist-${{ matrix.os }}-x86_64-s3/* dist_combined/
+          # Then copy main package
+          cp -r dist/dist-${{ matrix.os }}-x86_64-memory/*.tar.gz dist_combined/ || true
+          ls -la dist_combined/
 
-      - name: Install packages
+      - name: Install packages in correct order
         run: |
           python -m pip install --upgrade pip
-          pip install dist_combined/*.whl
-          pip install "opendalfs[all]"
+          # First install service packages
+          pip install dist_combined/*service_memory*.whl
+          pip install dist_combined/*service_s3*.whl
+          # Then install main package
+          pip install dist_combined/opendalfs*.whl
 
       - name: Verify imports
         run: |
+          python -c "import opendalfs"
+          python -c "import opendalfs_service_memory"
+          python -c "import opendalfs_service_s3"
+
+      - name: Test full installation
+        run: |
+          # Clean previous installation
+          pip uninstall -y opendalfs opendalfs_service_memory opendalfs_service_s3
+          # Install with all extras
+          pip install dist_combined/opendalfs*.whl[all]
+          # Verify again
           python -c "import opendalfs"
           python -c "import opendalfs_service_memory"
           python -c "import opendalfs_service_s3"

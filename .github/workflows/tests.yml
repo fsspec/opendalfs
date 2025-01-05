@@ -15,13 +15,13 @@ on:
       - 'docs/**'
 
 jobs:
-  test:
+  integration-tests:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v4
@@ -34,20 +34,20 @@ jobs:
         # Wait for MinIO to be healthy
         sleep 10
 
-    - name: Set up test environment
+    - name: Set up development environment
       run: |
         python -m venv .venv
         source .venv/bin/activate
         python -m pip install --upgrade pip
         pip install maturin pytest pytest-cov pytest-asyncio
 
-    - name: Install service backends
+    - name: Build Rust extensions
       run: |
         source .venv/bin/activate
         maturin develop -m crates/service-memory/Cargo.toml
         maturin develop -m crates/service-s3/Cargo.toml
 
-    - name: Install package
+    - name: Install package with test dependencies
       run: |
         source .venv/bin/activate
         pip install -e ".[test]"
