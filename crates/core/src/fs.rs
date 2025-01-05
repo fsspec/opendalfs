@@ -96,7 +96,7 @@ impl OpendalFileSystem {
         })
     }
 
-    fn mkdirs<'p>(&self, py: Python<'p>, path: &str, exist_ok: bool) -> PyResult<()> {
+    fn mkdirs(&self, py: Python, path: &str, exist_ok: bool) -> PyResult<()> {
         let path = normalize_path(path);
         let exists = self.check_path_exists(py, &path)?;
         if exists && !exist_ok {
@@ -166,7 +166,7 @@ impl OpendalFileSystem {
         })
     }
 
-    fn check_path_exists<'p>(&self, py: Python<'p>, path: &str) -> PyResult<bool> {
+    fn check_path_exists(&self, py: Python, path: &str) -> PyResult<bool> {
         let path = normalize_path(path);
         let op = self.op.clone();
 
