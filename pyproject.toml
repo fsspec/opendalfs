@@ -11,6 +11,40 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+# Runtime optional dependencies
 memory = ["opendalfs_service_memory"]
 s3 = ["opendalfs_service_s3"]
-test = ["pytest"]
+
+# Development dependencies
+dev = [
+    "ruff",              # Code formatting and linting
+    "maturin",           # Build Rust extensions
+    "build",             # Build Python packages
+    "twine",            # Upload packages to PyPI
+]
+
+# Test dependencies
+test = [
+    "pytest",           # Test framework
+    "pytest-asyncio",   # Async test support
+    "pytest-cov",       # Coverage reporting
+    "fsspec",          # Filesystem interface
+    "s3fs",            # S3 filesystem support
+]
+
+# All development dependencies
+all = ["opendalfs[memory,s3,dev,test]"]
+
+[tool.setuptools]
+packages = ["opendalfs"]
+package-dir = {"" = "."}
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+opendalfs = ["py.typed"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["crates/*", "target/*", "tests/*"]

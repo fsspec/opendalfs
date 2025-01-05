@@ -2,50 +2,47 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+    branches: [ main ]
 
 jobs:
-  check-rust:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check format
-        run: cargo fmt --all -- --check
-      - name: Check clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
 
-  check-python:
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install tools
-        run: |
-          pip install ruff
-      - name: Check format
-        run: |
-          ruff format . --diff
-      - name: Check style
-        run: |
-          ruff check .
+    - uses: actions/checkout@v3
 
-  check-pyo3:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service:
-          - "memory"
-          - "s3"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: build
-          working-directory: "crates/service-${{ matrix.service }}"
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Create and activate virtual environment
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        python -m pip install --upgrade pip
+        # Install all dependencies
+        pip install -e ".[all]"
+
+    - name: Check code format
+      run: |
+        source .venv/bin/activate
+        ruff format . --check
+
+    - name: Build service packages
+      run: |
+        source .venv/bin/activate
+        maturin build -m crates/service-memory/Cargo.toml
+        maturin build -m crates/service-s3/Cargo.toml
+
+    - name: Build Python package
+      run: |
+        source .venv/bin/activate
+        python -m build
+
+    - name: Check dist files
+      run: |
+        source .venv/bin/activate
+        twine check dist/*

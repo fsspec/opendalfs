@@ -4,3 +4,5 @@ venv/
 *.pyc
 .pdm-python
 .idea
+
+opendalfs.egg-info/

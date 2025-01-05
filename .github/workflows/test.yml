@@ -29,9 +29,10 @@ jobs:
         python -m venv .venv
         source .venv/bin/activate
         python -m pip install --upgrade pip
-        pip install maturin pytest pytest-asyncio boto3
+        # Install package with test and dev dependencies
+        pip install -e ".[test,dev]"
 
-    - name: Build and install
+    - name: Build and install service packages
       run: |
         source .venv/bin/activate
         maturin develop -m crates/service-memory/Cargo.toml
