@@ -1,4 +1,4 @@
-name: Test
+name: Tests
 
 on:
   push:
@@ -8,51 +8,50 @@ on:
 
 jobs:
   test:
+    name: Integration Tests
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    - name: Set up Python
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
-    - name: Start MinIO
+    - name: Start MinIO server
       run: |
         docker compose -f tests/docker/docker-compose.yml up -d
-        # Wait for MinIO to be ready
+        # Wait for MinIO to be healthy
         sleep 10
 
-    - name: Create virtual environment
+    - name: Set up test environment
       run: |
         python -m venv .venv
         source .venv/bin/activate
         python -m pip install --upgrade pip
-        # Install build dependencies first
-        pip install maturin pytest pytest-cov
+        pip install maturin pytest pytest-cov pytest-asyncio
 
-    - name: Build service packages
+    - name: Install service backends
       run: |
         source .venv/bin/activate
-        # Build and install service packages
         maturin develop -m crates/service-memory/Cargo.toml
         maturin develop -m crates/service-s3/Cargo.toml
 
-    - name: Install main package
+    - name: Install package
       run: |
         source .venv/bin/activate
-        # Now install the main package with test extras
         pip install -e ".[test]"
 
-    - name: Run tests
-      run: |
-        source .venv/bin/activate
-        pytest -v --cov=opendalfs --cov-report=xml
+    - name: Run test suite
       env:
         MINIO_ROOT_USER: minioadmin
         MINIO_ROOT_PASSWORD: minioadmin
+      run: |
+        source .venv/bin/activate
+        pytest -v --cov=opendalfs --cov-report=xml
 
-    - name: Stop MinIO
+    - name: Cleanup MinIO server
       if: always()
       run: docker compose -f tests/docker/docker-compose.yml down 

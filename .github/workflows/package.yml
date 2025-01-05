@@ -1,0 +1,50 @@
+name: Code Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    name: Lint & Build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up development environment
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        python -m pip install --upgrade pip
+        pip install maturin build twine ruff
+
+    - name: Check code formatting
+      run: |
+        source .venv/bin/activate
+        ruff format . --check
+
+    - name: Build Rust extensions
+      run: |
+        source .venv/bin/activate
+        # Build service backends
+        maturin build -m crates/service-memory/Cargo.toml
+        maturin build -m crates/service-s3/Cargo.toml
+
+    - name: Build Python package
+      run: |
+        source .venv/bin/activate
+        python -m build
+
+    - name: Verify packages
+      run: |
+        source .venv/bin/activate
+        twine check dist/* 
