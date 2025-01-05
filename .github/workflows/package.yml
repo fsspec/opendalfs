@@ -1,5 +1,12 @@
 name: Package
 
+# This workflow handles:
+# 1. Code quality checks for both Rust and Python
+# 2. Building the main Python package
+# 3. Building Rust service extensions (memory, s3)
+# 4. Verifying package installation and imports
+# Future: PyPI publishing on tags
+
 on:
   push:
     branches: [ main ]
@@ -18,9 +25,19 @@ jobs:
   check-rust:
     name: Rust Checks
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check format
         run: cargo fmt --all -- --check
@@ -31,9 +48,16 @@ jobs:
   check-python:
     name: Python Checks
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
@@ -53,6 +77,7 @@ jobs:
     name: Build Main Package
     needs: [check-rust, check-python]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -107,9 +132,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Create dist directory
-        run: mkdir -p dist
-
       - name: Install build dependencies
         run: pip install maturin
 
@@ -161,6 +183,7 @@ jobs:
     name: Verify Installation
     needs: [build-services]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -246,6 +269,12 @@ jobs:
           python -c "import opendalfs"
           python -c "import opendalfs_service_memory"
           python -c "import opendalfs_service_s3"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          pip uninstall -y opendalfs opendalfs_service_memory opendalfs_service_s3 || true
+          rm -rf dist dist_combined
 
   # PyPI publishing job (commented out for future use)
   # publish:
