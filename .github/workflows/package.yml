@@ -110,11 +110,17 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
-      - name: Download main package
-        uses: actions/download-artifact@v3
-        with:
-          name: dist-main
-          path: dist/
+      - name: Install build dependencies
+        run: pip install maturin
+
+      - name: Build service package (debug)
+        run: |
+          cd crates/service-${{ matrix.service }}
+          maturin build --release --out ../../dist
+          echo "=== Build directory contents ==="
+          find ../../dist -type f
+          echo "=== Target wheels contents ==="
+          find ../../target/wheels -type f || true
 
       - name: Build service package
         id: build-service
@@ -123,12 +129,26 @@ jobs:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.platform }}
           container: quay.io/pypa/manylinux2014_x86_64
-          args: --release --out dist
+          args: --release --out dist --interpreter python3.11
           command: build
           working-directory: crates/service-${{ matrix.service }}
 
       - name: List dist contents
-        run: ls -la dist/
+        run: |
+          echo "=== Service build output ==="
+          ls -la dist/
+          echo "=== Wheel details ==="
+          find dist -name "*.whl" -exec sh -c 'echo "$1"; unzip -l "$1"' _ {} \;
+          echo "=== All possible wheel locations ==="
+          find . -name "*.whl"
+
+      - name: Copy wheels to dist
+        run: |
+          # Ensure all wheels are in dist directory
+          mkdir -p dist
+          find . -name "*.whl" -exec cp {} dist/ \;
+          echo "=== Final dist contents ==="
+          ls -la dist/
 
       - name: Upload service artifact
         uses: actions/upload-artifact@v3
@@ -157,29 +177,49 @@ jobs:
 
       - name: List downloaded artifacts
         run: |
+          echo "=== All artifacts ==="
           find dist -type f
+          echo "=== Service artifacts ==="
+          find dist/dist-ubuntu-24.04-x86_64-memory dist/dist-ubuntu-24.04-x86_64-s3 -type f
 
       - name: Prepare dist directory
         run: |
           mkdir -p dist_combined
-          # First copy service packages
-          cp -r dist/dist-ubuntu-24.04-x86_64-memory/* dist_combined/
-          cp -r dist/dist-ubuntu-24.04-x86_64-s3/* dist_combined/
-          # Then copy main package
-          cp -r dist/dist-main/* dist_combined/
+          # Copy service wheels first (only cp311 wheels)
+          cp dist/dist-ubuntu-24.04-x86_64-memory/*cp311*.whl dist_combined/
+          cp dist/dist-ubuntu-24.04-x86_64-s3/*cp311*.whl dist_combined/
+          # Copy main package
+          cp dist/dist-main/*.whl dist_combined/
+          cp dist/dist-main/*.tar.gz dist_combined/
+          echo "=== Contents of dist_combined ==="
           ls -la dist_combined/
 
       - name: Install packages in correct order
         run: |
           python -m pip install --upgrade pip
-          # First install service packages
-          pip install dist_combined/*service_memory*.whl
-          pip install dist_combined/*service_s3*.whl
-          # Then install main package
-          pip install dist_combined/opendalfs*.whl
+          echo "=== Installing service packages ==="
+          # Install memory service (only cp311 wheels)
+          for whl in dist_combined/opendalfs_service_memory*cp311*.whl; do
+            if [ -f "$whl" ]; then
+              echo "Installing memory service: $whl"
+              pip install "$whl"
+            fi
+          done
+          # Install s3 service (only cp311 wheels)
+          for whl in dist_combined/opendalfs_service_s3*cp311*.whl; do
+            if [ -f "$whl" ]; then
+              echo "Installing s3 service: $whl"
+              pip install "$whl"
+            fi
+          done
+          echo "=== Installing main package ==="
+          pip install dist_combined/opendalfs-*.whl
 
       - name: Verify imports
         run: |
+          echo "=== Installed packages ==="
+          pip list | grep opendalfs
+          echo "=== Verifying imports ==="
           python -c "import opendalfs"
           python -c "import opendalfs_service_memory"
           python -c "import opendalfs_service_s3"
@@ -188,9 +228,21 @@ jobs:
         run: |
           # Clean previous installation
           pip uninstall -y opendalfs opendalfs_service_memory opendalfs_service_s3
-          # Install with all extras
-          pip install dist_combined/opendalfs*.whl[all]
-          # Verify again
+          # Install with all extras (use exact filename)
+          echo "=== Installing with all extras ==="
+          # First install service packages
+          for whl in dist_combined/opendalfs_service_*manylinux_2_17*.whl; do
+            if [ -f "$whl" ]; then
+              echo "Installing service: $whl"
+              pip install "$whl"
+            fi
+          done
+          # Then install main package with all extras
+          MAIN_WHEEL=$(find dist_combined -name "opendalfs-*.whl")
+          echo "Installing main package with extras: $MAIN_WHEEL"
+          pip install "$MAIN_WHEEL[all]"
+          # Verify imports
+          echo "=== Verifying imports ==="
           python -c "import opendalfs"
           python -c "import opendalfs_service_memory"
           python -c "import opendalfs_service_s3"
