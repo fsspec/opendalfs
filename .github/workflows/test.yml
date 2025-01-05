@@ -10,24 +10,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      minio:
-        image: minio/minio
-        ports:
-          - 9000:9000
-          - 9001:9001
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 30s
-          --health-timeout 20s
-          --health-retries 3
-        volumes:
-          - /tmp/data:/data
-        command: server /data --console-address ":9001"
-
     steps:
     - uses: actions/checkout@v3
 
@@ -35,6 +17,12 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+
+    - name: Start MinIO
+      run: |
+        docker compose -f tests/docker/docker-compose.yml up -d
+        # Wait for MinIO to be ready
+        sleep 10
 
     - name: Install dependencies
       run: |
@@ -51,4 +39,8 @@ jobs:
         pytest -v --cov=opendalfs --cov-report=xml
       env:
         MINIO_ROOT_USER: minioadmin
-        MINIO_ROOT_PASSWORD: minioadmin 
+        MINIO_ROOT_PASSWORD: minioadmin
+
+    - name: Stop MinIO
+      if: always()
+      run: docker compose -f tests/docker/docker-compose.yml down 
