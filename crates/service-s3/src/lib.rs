@@ -3,7 +3,6 @@ use opendal::Operator;
 use opendalfs_core::OpendalFileSystem;
 use pyo3::prelude::*;
 
-#[derive(Default)]
 #[pyclass(extends=OpendalFileSystem)]
 pub struct S3FileSystem;
 

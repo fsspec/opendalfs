@@ -7,3 +7,5 @@ rust-version.workspace = true
 [dependencies]
 pyo3.workspace = true
 opendal.workspace = true
+tokio = { version = "1.27", features = ["rt-multi-thread"] }
+pyo3-async-runtimes = { version = "0.22.0", features = ["attributes", "tokio-runtime"] }
