@@ -135,15 +135,6 @@ jobs:
       - name: Install build dependencies
         run: pip install maturin
 
-      - name: Build service package (debug)
-        run: |
-          cd crates/service-${{ matrix.service }}
-          maturin build --release --out ../../dist
-          echo "=== Build directory contents ==="
-          find ../../dist -type f
-          echo "=== Target wheels contents ==="
-          find ../../target/wheels -type f || true
-
       - name: Build service package
         id: build-service
         uses: PyO3/maturin-action@v1
@@ -155,28 +146,18 @@ jobs:
           command: build
           working-directory: crates/service-${{ matrix.service }}
 
-      - name: List dist contents
+      - name: List all wheels
         run: |
-          echo "=== Service build output ==="
-          ls -la dist/
-          echo "=== Wheel details ==="
-          find dist -name "*.whl" -exec sh -c 'echo "$1"; unzip -l "$1"' _ {} \;
-          echo "=== All possible wheel locations ==="
-          find . -name "*.whl"
-
-      - name: Copy wheels to dist
-        run: |
-          # Ensure all wheels are in dist directory
-          mkdir -p dist
-          find . -name "*.whl" -exec cp {} dist/ \;
-          echo "=== Final dist contents ==="
-          ls -la dist/
+          echo "=== All wheel locations ==="
+          find . -name "*.whl" -exec ls -l {} \;
+          echo "=== Service directory contents ==="
+          ls -la crates/service-${{ matrix.service }}/dist/
 
       - name: Upload service artifact
         uses: actions/upload-artifact@v3
         with:
           name: dist-${{ matrix.os }}-${{ matrix.target }}-${{ matrix.service }}
-          path: dist/*.whl
+          path: crates/service-${{ matrix.service }}/dist/*.whl
           if-no-files-found: error
 
   verify-install:
