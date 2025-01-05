@@ -20,7 +20,7 @@ dev = [
     "ruff",              # Code formatting and linting
     "maturin",           # Build Rust extensions
     "build",             # Build Python packages
-    "twine",            # Upload packages to PyPI
+    "twine",             # Upload packages to PyPI
 ]
 
 # Test dependencies
@@ -28,8 +28,9 @@ test = [
     "pytest",           # Test framework
     "pytest-asyncio",   # Async test support
     "pytest-cov",       # Coverage reporting
-    "fsspec",          # Filesystem interface
-    "s3fs",            # S3 filesystem support
+    "fsspec",           # Filesystem interface
+    "s3fs",             # S3 filesystem support
+    "boto3",            # AWS S3 client for environment provision
 ]
 
 # All development dependencies
