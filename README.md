@@ -1,5 +1,10 @@
 # opendalfs
 
+[![Discussions](https://img.shields.io/github/discussions/fsspec/opendalfs)](https://github.com/fsspec/opendalfs/discussions)
+[![Tests](https://github.com/fsspec/opendalfs/actions/workflows/tests.yml/badge.svg)](https://github.com/fsspec/opendalfs/actions/workflows/tests.yml)
+[![Package](https://github.com/fsspec/opendalfs/actions/workflows/package.yml/badge.svg)](https://github.com/fsspec/opendalfs/actions/workflows/package.yml)
+
+
 `opendalfs` is a Python-based interface for file systems that enables interaction with different storage services by [Apache OpenDAL](https://github.com/apache/opendal). Through `opendalfs`, users can utilize fsspec's standard API to operate on all [storage services supported by OpenDAL](https://docs.rs/opendal/latest/opendal/services/index.html).
 
 ## Installation
