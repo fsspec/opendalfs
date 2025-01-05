@@ -56,25 +56,29 @@ pip install -e ".[s3]"        # For S3 backend development
 ### Prerequisites
 
 1. For S3 tests, you need MinIO running locally:
+
 ```shell
 docker compose -f tests/docker/docker-compose.yml up -d
 ```
 
 Note: The S3 tests use these default settings:
-- Endpoint: http://localhost:9000
-- Region: us-east-1
-- Access Key: minioadmin
-- Secret Key: minioadmin
-- Bucket: test-bucket
+
+- Endpoint: `http://localhost:9000`
+- Region: `us-east-1`
+- Access Key: `minioadmin`
+- Secret Key: `minioadmin`
+- Bucket: `test-bucket`
 
 ### Running Tests
 
 1. Run the test suite:
+
 ```shell
 pytest -v
 ```
 
 2. After testing, stop MinIO:
+
 ```shell
 docker compose -f tests/docker/docker-compose.yml down
 ```
@@ -116,7 +120,7 @@ See `.github/workflows/` for detailed configurations.
 We use `pyo3-asyncio` to bridge between Rust futures and Python coroutines:
 
 ```mermaid
-graph TD;
+graph LR;
     Python[Python Sync API] --> FSSpec[FSSpec sync_wrapper];
     FSSpec --> AsyncFS[AsyncFileSystem];
     AsyncFS --> PyO3[PyO3 Async Bridge];
