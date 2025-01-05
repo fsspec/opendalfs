@@ -49,24 +49,72 @@ jobs:
       - name: Check style
         run: ruff check .
 
-  check-pyo3:
-    name: PyO3 Service Builds
-    runs-on: ubuntu-latest
+  build-packages:
+    name: Build Packages
+    needs: [check-rust, check-python]
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        service: ["memory", "s3"]
+        os: [ubuntu-latest, macos-latest]
+        target: [x86_64, aarch64]
+        service: [memory, s3]
+        exclude:
+          # Exclude aarch64 builds on x86 runners
+          - os: ubuntu-latest
+            target: aarch64
+          - os: macos-latest
+            target: aarch64
+        include:
+          # Linux builds use manylinux
+          - os: ubuntu-latest
+            target: x86_64
+            platform: manylinux_2_28_x86_64
+          # macOS builds are native
+          - os: macos-latest
+            target: x86_64
+            platform: native
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - uses: PyO3/maturin-action@v1
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
         with:
-          command: build
-          working-directory: "crates/service-${{ matrix.service }}"
+          python-version: '3.11'
 
-  build-dist:
-    name: Build Distribution
-    needs: [check-rust, check-python, check-pyo3]
+      - name: Build service package
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.platform }}
+          args: --release --out dist
+          command: build
+          working-directory: crates/service-${{ matrix.service }}
+
+      # Build main package only once per OS
+      - name: Build main package
+        if: matrix.service == 'memory'  # Only build once per OS
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --outdir dist/
+
+      - name: Verify packages
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-${{ matrix.os }}-${{ matrix.target }}-${{ matrix.service }}
+          path: dist/
+          if-no-files-found: error
+
+  verify-install:
+    name: Verify Installation
+    needs: build-packages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -77,20 +125,54 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Build Python package
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: dist
+
+      - name: Prepare dist directory
+        run: |
+          mkdir -p dist_combined
+          cp -r dist/*/* dist_combined/
+
+      - name: Install packages
         run: |
           python -m pip install --upgrade pip
-          pip install build
-          python -m build
+          pip install dist_combined/*.whl
+          pip install "opendalfs[all]"
 
-      - name: Verify package
+      - name: Verify imports
         run: |
-          pip install twine
-          twine check dist/*
+          python -c "import opendalfs"
+          python -c "import opendalfs_service_memory"
+          python -c "import opendalfs_service_s3"
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: dist
-          path: dist/
-          if-no-files-found: error 
+  # PyPI publishing job (commented out for future use)
+  # publish:
+  #   name: Publish to PyPI
+  #   needs: verify-install
+  #   runs-on: ubuntu-latest
+  #   # Only run on tags
+  #   if: startsWith(github.ref, 'refs/tags/')
+  #   
+  #   steps:
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         path: dist
+  #
+  #     - name: Prepare dist directory
+  #       run: |
+  #         mkdir -p dist_combined
+  #         cp -r dist/*/* dist_combined/
+  #
+  #     - name: Publish to PyPI
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       with:
+  #         password: ${{ secrets.PYPI_API_TOKEN }}
+  #         packages-dir: dist_combined/
+  #
+  # Required secrets for PyPI publishing:
+  # - PYPI_API_TOKEN: API token from PyPI
+  #   Get it from: https://pypi.org/manage/account/token/
+  #   Add it to: https://github.com/fsspec/opendalfs/settings/secrets/actions 
