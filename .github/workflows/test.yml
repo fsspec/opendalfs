@@ -24,19 +24,26 @@ jobs:
         # Wait for MinIO to be ready
         sleep 10
 
-    - name: Create and activate virtual environment
+    - name: Create virtual environment
       run: |
         python -m venv .venv
         source .venv/bin/activate
         python -m pip install --upgrade pip
-        # Install package with test and dev dependencies
-        pip install -e ".[test,dev]"
+        # Install build dependencies first
+        pip install maturin pytest pytest-cov
 
-    - name: Build and install service packages
+    - name: Build service packages
       run: |
         source .venv/bin/activate
+        # Build and install service packages
         maturin develop -m crates/service-memory/Cargo.toml
         maturin develop -m crates/service-s3/Cargo.toml
+
+    - name: Install main package
+      run: |
+        source .venv/bin/activate
+        # Now install the main package with test extras
+        pip install -e ".[test]"
 
     - name: Run tests
       run: |
