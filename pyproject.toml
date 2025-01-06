@@ -3,14 +3,51 @@ name = "opendalfs"
 version = "0.0.1"
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
+    "Intended Audience :: Developers", 
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+dependencies = [
+    "fsspec",
+]
 
 [project.optional-dependencies]
+# Runtime optional dependencies
 memory = ["opendalfs_service_memory"]
 s3 = ["opendalfs_service_s3"]
-test = ["pytest"]
+
+# Development dependencies
+dev = [
+    "ruff",              # Code formatting and linting
+    "maturin",           # Build Rust extensions
+    "build",             # Build Python packages
+    "twine",             # Upload packages to PyPI
+]
+
+# Test dependencies
+test = [
+    "pytest",           # Test framework
+    "pytest-asyncio",   # Async test support
+    "pytest-cov",       # Coverage reporting
+    "s3fs",             # S3 filesystem support
+    "boto3",            # AWS S3 client for environment provision
+]
+
+# All development dependencies
+all = ["opendalfs[memory,s3,dev,test]"]
+
+[tool.setuptools]
+packages = ["opendalfs"]
+package-dir = {"" = "."}
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+opendalfs = ["py.typed"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["crates/*", "target/*", "tests/*"]

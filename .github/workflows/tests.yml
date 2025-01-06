@@ -1,0 +1,65 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.rst'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.rst'
+      - 'docs/**'
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Start MinIO server
+      run: |
+        docker compose -f tests/docker/docker-compose.yml up -d
+        # Wait for MinIO to be healthy
+        sleep 10
+
+    - name: Set up development environment
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        python -m pip install --upgrade pip
+        pip install maturin pytest pytest-cov pytest-asyncio
+
+    - name: Build Rust extensions
+      run: |
+        source .venv/bin/activate
+        maturin develop -m crates/service-memory/Cargo.toml
+        maturin develop -m crates/service-s3/Cargo.toml
+
+    - name: Install package with test dependencies
+      run: |
+        source .venv/bin/activate
+        pip install -e ".[test]"
+
+    - name: Run test suite
+      env:
+        MINIO_ROOT_USER: minioadmin
+        MINIO_ROOT_PASSWORD: minioadmin
+      run: |
+        source .venv/bin/activate
+        pytest -v --cov=opendalfs --cov-report=xml
+
+    - name: Cleanup MinIO server
+      if: always()
+      run: docker compose -f tests/docker/docker-compose.yml down 
