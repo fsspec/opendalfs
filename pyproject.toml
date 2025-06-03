@@ -3,7 +3,7 @@ name = "opendalfs"
 version = "0.0.1"
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers", 
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.11",
@@ -11,19 +11,13 @@ classifiers = [
 ]
 dependencies = [
     "fsspec",
+    "opendal",
 ]
 
 [project.optional-dependencies]
-# Runtime optional dependencies
-memory = ["opendalfs_service_memory"]
-s3 = ["opendalfs_service_s3"]
-
 # Development dependencies
 dev = [
     "ruff",              # Code formatting and linting
-    "maturin",           # Build Rust extensions
-    "build",             # Build Python packages
-    "twine",             # Upload packages to PyPI
 ]
 
 # Test dependencies
@@ -36,7 +30,7 @@ test = [
 ]
 
 # All development dependencies
-all = ["opendalfs[memory,s3,dev,test]"]
+all = ["opendalfs[dev,test]"]
 
 [tool.setuptools]
 packages = ["opendalfs"]
@@ -48,6 +42,3 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 opendalfs = ["py.typed"]
-
-[tool.setuptools.exclude-package-data]
-"*" = ["crates/*", "target/*", "tests/*"]
