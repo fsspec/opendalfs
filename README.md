@@ -10,23 +10,13 @@
 ## Installation
 
 ### Basic Installation
+
 ```bash
 pip install opendalfs
 ```
 
-### With Optional Services
-```bash
-# Install with S3 support
-pip install "opendalfs[s3]"
-
-# Install with memory backend
-pip install "opendalfs[memory]"
-
-# Install with all service backends
-pip install "opendalfs[memory,s3]"
-```
-
 ### Development Installation
+
 ```bash
 # Install all development dependencies
 pip install "opendalfs[all]"
@@ -39,8 +29,6 @@ pip install "opendalfs[dev,test]"  # for development and testing
 
 This project uses:
 - Python 3.11+ for the Python interface
-- Rust for the core implementation
-- maturin for building Rust extensions
 - ruff for code formatting and linting
 - pytest for testing
 

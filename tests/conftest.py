@@ -31,12 +31,6 @@ def minio_server():
 
 
 @pytest.fixture
-def memory_fs():
-    """Create a memory filesystem for testing sync operations."""
-    return OpendalFileSystem("memory", asynchronous=False)
-
-
-@pytest.fixture
 def s3_fs(minio_server):
     """Create an S3 filesystem for testing sync operations."""
     from .utils.s3 import create_test_bucket, cleanup_bucket, verify_bucket
@@ -77,9 +71,9 @@ async def event_loop():
 
 
 @pytest.mark.asyncio
-async def test_write_read(memory_fs, s3_fs):
+async def test_write_read(s3_fs):
     """Test basic write and read operations."""
-    for fs in [memory_fs, s3_fs]:
+    for fs in [s3_fs]:
         content = b"test content"
         await fs._write("test.txt", content)
         result = await fs._read("test.txt")

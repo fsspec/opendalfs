@@ -1,5 +1,6 @@
 /target
 venv/
+.venv/
 *.so
 *.pyc
 .pdm-python
@@ -7,3 +8,5 @@ venv/
 
 opendalfs.egg-info/
 dist/
+.coverage
+coverage.xml
