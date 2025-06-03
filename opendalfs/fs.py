@@ -3,10 +3,11 @@ from fsspec.asyn import AsyncFileSystem, sync
 import logging
 from opendal import Operator, AsyncOperator
 from .file import OpendalBufferedFile
+from .decorator import generate_blocking_methods
 
 logger = logging.getLogger("opendalfs")
 
-
+@generate_blocking_methods
 class OpendalFileSystem(AsyncFileSystem):
     """OpenDAL implementation of fsspec AsyncFileSystem.
 
@@ -71,36 +72,17 @@ class OpendalFileSystem(AsyncFileSystem):
         else:
             await self.async_fs.delete(path)
 
-    def rmdir(self, path: str, recursive: bool = False) -> None:
-        """Sync version of rmdir"""
-        if recursive:
-            self.fs.remove_all(path)
-        else:
-            self.fs.delete(path)
-
     async def _rm_file(self, path: str, **kwargs) -> None:
         """Remove file"""
         await self.async_fs.delete(path)
-
-    def rm_file(self, path: str) -> None:
-        """Sync version of rm_file"""
-        return sync(self.loop, self._rm_file, path)
 
     async def _read(self, path: str):
         """Read file contents"""
         return await self.async_fs.read(path)
 
-    def read(self, path: str):
-        """Read file contents"""
-        return self.fs.read(path)
-
     async def _write(self, path: str, data: bytes):
         """Write file contents"""
         await self.async_fs.write(path, data)
-
-    def write(self, path: str, data: bytes):
-        """Synchronous version of write"""
-        self.fs.write(path, data)
 
     # Higher-level async operations built on core methods
     async def _exists(self, path: str, **kwargs):
@@ -127,16 +109,7 @@ class OpendalFileSystem(AsyncFileSystem):
             **kwargs,
         )
 
-    def created(self, path: str) -> None:
-        """Get creation time (not supported)"""
-        raise NotImplementedError("Creation time is not supported by OpenDAL")
-
     async def _modified(self, path: str):
         """Get modified time (async version)"""
         info = await self.async_fs.stat(path)
-        return info.last_modified
-
-    def modified(self, path: str):
-        """Get modified time (sync version)"""
-        info = self.fs.stat(path)
         return info.last_modified
