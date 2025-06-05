@@ -31,22 +31,31 @@ class OpendalBufferedFile(AbstractBufferedFile):
             **kwargs,
         )
 
-    def _fetch_range(self, start: int, end: int):
-        """Download data between start and end"""
-        pass
+    def _fetch_range(self, start: int, end: int) -> bytes:
+        """Download data between start and end."""
+        logger.debug(f"Fetching bytes from {start} to {end} for {self.path}")
+        data = self.fs.fs.read(self.path)  # sync operator
+        return data[start:end]
 
     def _upload_chunk(self, final: bool = False):
-        """Upload partial chunk of data"""
+        """No-op: we buffer until close and upload once."""
         pass
 
     def _initiate_upload(self) -> None:
         """Prepare for uploading"""
-        pass
+        logger.debug(f"Initiated upload for {self.path}")
 
     def _commit_upload(self) -> None:
-        """Ensure upload is complete"""
-        pass
+        """Write the full buffer to the backend once"""
+        logger.debug(f"Committing full upload for {self.path}")
+        self.buffer.seek(0)
+        data = self.buffer.read()
+        self.fs.write(self.path, data)
 
     def close(self):
         """Ensure data is written before closing"""
-        pass
+        if not self.closed:
+            if self.mode in ("wb", "ab"):
+                self._commit_upload()
+            super().close()
+            logger.debug(f"Closed file {self.path}")
