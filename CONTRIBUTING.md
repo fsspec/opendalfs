@@ -18,15 +18,10 @@ uv sync --locked --all-extras --dev
 
 ### Dependency Groups
 
-The project uses several dependency groups:
-- `dev`: Development tools (ruff)
-- `test`: Testing tools (pytest, pytest-asyncio, pytest-cov, fsspec, s3fs)
-- `all`: All dependencies combined
-
 Install specific groups as needed:
 ```shell
-pip install -e ".[dev,test]"  # For development and testing
-pip install -e ".[s3]"        # For S3 backend development
+pip install -e ".[dev]"  # For development and testing
+
 ```
 
 ## Testing

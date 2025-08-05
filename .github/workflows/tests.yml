@@ -24,14 +24,5 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Start MinIO server
-        run: |
-          docker compose -f tests/docker/docker-compose.yml up -d
-          # Wait for MinIO to be healthy
-          sleep 10
-
       - name: Run tests
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        run: uv run pytest -v --cov=opendalfs --cov-report=xml
+        run: make test PYTEST_ARGS="-v --cov=opendalfs --cov-report=xml"

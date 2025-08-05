@@ -1,5 +1,5 @@
 from typing import Any
-from fsspec.asyn import AsyncFileSystem, sync
+from fsspec import AbstractFileSystem
 import logging
 from opendal import Operator, AsyncOperator
 from .file import OpendalBufferedFile
@@ -8,8 +8,8 @@ from .decorator import generate_blocking_methods
 logger = logging.getLogger("opendalfs")
 
 @generate_blocking_methods
-class OpendalFileSystem(AsyncFileSystem):
-    """OpenDAL implementation of fsspec AsyncFileSystem.
+class OpendalFileSystem(AbstractFileSystem):
+    """OpenDAL implementation for fsspec.
 
     This implementation provides both synchronous and asynchronous access to
     various storage backends supported by OpenDAL.
