@@ -19,23 +19,14 @@ dependencies = [
 # Development dependencies
 dev = [
     "ruff",              # Code formatting and linting
-]
-
-# Test dependencies
-test = [
     "pytest",           # Test framework
     "pytest-asyncio",   # Async test support
     "pytest-cov",       # Coverage reporting
-    "s3fs",             # S3 filesystem support
-    "boto3",            # AWS S3 client for environment provision
+    "pytest-lazy-fixtures", # Lazy fixture loading
 ]
-
-# All development dependencies
-all = ["opendalfs[dev,test]"]
 
 [tool.setuptools]
 packages = ["opendalfs"]
-package-dir = {"" = "."}
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -43,3 +34,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 opendalfs = ["py.typed"]
+
+
+filterwarnings = [
+    "error",
+    "ignore:A plugin raised an exception during an old-style hookwrapper teardown.",
+]
