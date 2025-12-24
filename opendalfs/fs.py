@@ -1,11 +1,14 @@
-from typing import Any
-from fsspec.asyn import AsyncFileSystem, sync
 import logging
+from typing import Any
+
+from fsspec.asyn import AsyncFileSystem
 from opendal import Operator, AsyncOperator
-from .file import OpendalBufferedFile
+
 from .decorator import generate_blocking_methods
+from .file import OpendalBufferedFile
 
 logger = logging.getLogger("opendalfs")
+
 
 @generate_blocking_methods
 class OpendalFileSystem(AsyncFileSystem):

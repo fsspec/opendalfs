@@ -1,6 +1,7 @@
 import inspect
 import functools
 
+
 def generate_blocking_methods(cls):
     """
     Class decorator that automatically creates blocking versions of async methods.
@@ -12,9 +13,9 @@ def generate_blocking_methods(cls):
 
     # Find all async methods that start with underscore
     for name, method in inspect.getmembers(cls, predicate=inspect.isfunction):
-        if name.startswith('_') and inspect.iscoroutinefunction(method):
+        if name.startswith("_") and inspect.iscoroutinefunction(method):
             # Skip any private methods with double underscore
-            if name.startswith('__'):
+            if name.startswith("__"):
                 continue
 
             # Get the method name without underscore
