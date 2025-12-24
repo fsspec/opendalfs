@@ -15,6 +15,11 @@ dependencies = [
     "opendal",
 ]
 
+[project.entry-points."fsspec.specs"]
+"opendal+s3" = "opendalfs.registry:OpendalS3FileSystem"
+"opendal+gcs" = "opendalfs.registry:OpendalGCSFileSystem"
+"opendal+azblob" = "opendalfs.registry:OpendalAzBlobFileSystem"
+
 [project.optional-dependencies]
 # Development dependencies
 dev = [

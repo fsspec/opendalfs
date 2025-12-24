@@ -7,6 +7,32 @@
 
 `opendalfs` is a Python-based interface for file systems that enables interaction with different storage services by [Apache OpenDAL](https://github.com/apache/opendal). Through `opendalfs`, users can utilize fsspec's standard API to operate on all [storage services supported by OpenDAL](https://docs.rs/opendal/latest/opendal/services/index.html).
 
+## URL Protocols
+
+`opendalfs` registers multiple fsspec protocols in the form of `opendal+<service>`, for example:
+
+```python
+import fsspec
+
+f = fsspec.open(
+    "opendal+s3://my-bucket/path/to/file",
+    mode="rb",
+    endpoint="http://localhost:9000",
+    access_key_id="minioadmin",
+    secret_access_key="minioadmin",
+)
+```
+
+The URL host is mapped to the service container (e.g. `bucket` for `s3`/`gcs`, `container` for `azblob`), and the URL path is used as the object key.
+
+For other OpenDAL services, register protocols at runtime:
+
+```python
+import opendalfs
+
+opendalfs.register_opendal_service("oss")
+```
+
 ## Installation
 
 ### Basic Installation
