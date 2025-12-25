@@ -6,9 +6,9 @@ from typing import Any
 from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import trailing_sep
 import logging
-from opendal import AsyncOperator
+from opendal import AsyncOperator, Operator
+from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
 from opendal.exceptions import NotFound, Unsupported
-from .file import OpendalBufferedFile
 
 logger = logging.getLogger("opendalfs")
 
@@ -46,6 +46,7 @@ class OpendalFileSystem(AsyncFileSystem):
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
         self.scheme = scheme
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
+        self.operator: Operator = self.async_fs.to_operator()
 
     @staticmethod
     def _fsspec_type_from_mode(mode: Any) -> str:
@@ -186,10 +187,38 @@ class OpendalFileSystem(AsyncFileSystem):
             **kwargs,
         )
 
+    async def open_async(self, path, mode="rb", **kwargs):
+        if "b" not in mode or kwargs.get("compression"):
+            raise ValueError
+
+        size = None
+        if mode == "rb":
+            try:
+                info = await self.async_fs.stat(path)
+            except NotFound as err:
+                raise FileNotFoundError(path) from err
+            else:
+                size = info.content_length
+
+        file = OpendalAsyncBufferedFile(self, path, mode, size=size, **kwargs)
+
+        if mode == "ab":
+            try:
+                info = await self.async_fs.stat(path)
+                file.loc = info.content_length
+            except NotFound:
+                file.loc = 0
+
+        return file
+
     async def _modified(self, path: str):
         """Get modified time (async version)"""
-        info = await self.async_fs.stat(path)
-        return info.last_modified
+        try:
+            info = await self.async_fs.stat(path)
+        except NotFound as err:
+            raise FileNotFoundError(path) from err
+        else:
+            return info.last_modified
 
     def mv(self, path1, path2, recursive: bool = False, maxdepth: int | None = None, **kwargs):
         if (
@@ -205,9 +234,7 @@ class OpendalFileSystem(AsyncFileSystem):
                 base = src.rstrip("/").split("/")[-1]
                 dst = dst.rstrip("/") + "/" + base
             try:
-                from fsspec.asyn import sync
-
-                sync(self.loop, self._opendal_rename, src, dst)
+                self.operator.rename(src, dst)
                 self.invalidate_cache(self._parent(src.rstrip("/")))
                 self.invalidate_cache(self._parent(dst.rstrip("/")))
                 return None
