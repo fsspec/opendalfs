@@ -9,5 +9,5 @@ def test_write_read(s3_fs):
     """Test basic write and read operations."""
     for fs in [s3_fs]:
         content = b"test content"
-        fs.write("test.txt", content)
-        assert fs.read("test.txt") == content
+        fs.pipe_file("test.txt", content)
+        assert fs.cat_file("test.txt") == content

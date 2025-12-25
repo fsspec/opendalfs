@@ -75,6 +75,6 @@ async def test_write_read(s3_fs):
     """Test basic write and read operations."""
     for fs in [s3_fs]:
         content = b"test content"
-        await fs._write("test.txt", content)
-        result = await fs._read("test.txt")
+        await fs._pipe_file("test.txt", content)
+        result = await fs._cat_file("test.txt")
         assert result == content

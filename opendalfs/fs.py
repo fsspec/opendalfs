@@ -1,13 +1,11 @@
 from typing import Any
-from fsspec.asyn import AsyncFileSystem, sync
+from fsspec.asyn import AsyncFileSystem
 import logging
-from opendal import Operator, AsyncOperator
+from opendal import AsyncOperator
 from .file import OpendalBufferedFile
-from .decorator import generate_blocking_methods
 
 logger = logging.getLogger("opendalfs")
 
-@generate_blocking_methods
 class OpendalFileSystem(AsyncFileSystem):
     """OpenDAL implementation of fsspec AsyncFileSystem.
 
@@ -41,7 +39,6 @@ class OpendalFileSystem(AsyncFileSystem):
         """
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
         self.scheme = scheme
-        self.fs = Operator(scheme, *args, **kwargs)
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
 
     # Async implementations using Rust's async methods directly
@@ -76,13 +73,30 @@ class OpendalFileSystem(AsyncFileSystem):
         """Remove file"""
         await self.async_fs.delete(path)
 
-    async def _read(self, path: str):
-        """Read file contents"""
-        return await self.async_fs.read(path)
+    async def _cat_file(self, path: str, start: int | None = None, end: int | None = None, **kwargs):
+        """Get file content as bytes (async implementation)."""
+        data = await self.async_fs.read(path)
+        if start is None and end is None:
+            return data
 
-    async def _write(self, path: str, data: bytes):
-        """Write file contents"""
-        await self.async_fs.write(path, data)
+        size = len(data)
+        if start is None:
+            start = 0
+        elif start < 0:
+            start = max(0, size + start)
+
+        if end is None:
+            end = size
+        elif end < 0:
+            end = size + end
+
+        return data[start:end]
+
+    async def _pipe_file(self, path: str, value: bytes, mode: str = "overwrite", **kwargs) -> None:
+        """Write bytes into file (async implementation)."""
+        if mode == "create" and await self._exists(path):
+            raise FileExistsError(path)
+        await self.async_fs.write(path, value)
 
     # Higher-level async operations built on core methods
     async def _exists(self, path: str, **kwargs):
