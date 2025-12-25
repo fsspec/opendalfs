@@ -61,6 +61,14 @@ def s3_fs(minio_server):
     yield fs
     cleanup_bucket()
 
+@pytest.fixture
+def memory_fs():
+    """Create an in-memory filesystem for tests that don't require external services."""
+    return OpendalFileSystem(
+        scheme="memory",
+        asynchronous=False,
+    )
+
 
 @pytest.fixture(scope="function")
 async def event_loop():

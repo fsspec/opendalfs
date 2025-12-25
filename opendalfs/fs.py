@@ -41,21 +41,44 @@ class OpendalFileSystem(AsyncFileSystem):
         self.scheme = scheme
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
 
+    @staticmethod
+    def _fsspec_type_from_mode(mode: Any) -> str:
+        if hasattr(mode, "is_dir") and mode.is_dir():
+            return "directory"
+        if hasattr(mode, "is_file") and mode.is_file():
+            return "file"
+        return "other"
+
     # Async implementations using Rust's async methods directly
     #
-    # TODO: support detail
     async def _ls(self, path: str, detail=True, **kwargs):
         """List contents of path"""
-        return await self.async_fs.list(path)
+        list_path = path
+        if path and not path.endswith("/"):
+            list_path = path + "/"
+
+        lister = await self.async_fs.list(list_path)
+
+        paths: list[str] = []
+        async for entry in lister:
+            paths.append(entry.path)
+
+        if not detail:
+            return paths
+
+        out: list[dict[str, Any]] = []
+        for p in paths:
+            out.append(await self._info(p))
+        return out
 
     async def _info(self, path: str, **kwargs):
         """Get path info"""
         logger.debug(f"Getting info for: {path}")
         info = await self.async_fs.stat(path)
         return {
+            "name": path,
             "size": info.content_length,
-            "path": path,
-            "type": info.mode,
+            "type": self._fsspec_type_from_mode(info.mode),
         }
 
     async def _mkdir(self, path: str, create_parents: bool = True, **kwargs) -> None:
