@@ -2,7 +2,7 @@ from typing import Any
 from fsspec.asyn import AsyncFileSystem
 import logging
 from opendal import AsyncOperator, Operator
-from .file import OpendalBufferedFile
+from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
 
 logger = logging.getLogger("opendalfs")
 
@@ -146,6 +146,26 @@ class OpendalFileSystem(AsyncFileSystem):
             cache_options=cache_options,
             **kwargs,
         )
+
+    async def open_async(self, path, mode="rb", **kwargs):
+        if "b" not in mode or kwargs.get("compression"):
+            raise ValueError
+
+        size = None
+        if mode == "rb":
+            info = await self.async_fs.stat(path)
+            size = info.content_length
+
+        file = OpendalAsyncBufferedFile(self, path, mode, size=size, **kwargs)
+
+        if mode == "ab":
+            try:
+                info = await self.async_fs.stat(path)
+                file.loc = info.content_length
+            except FileNotFoundError:
+                file.loc = 0
+
+        return file
 
     async def _modified(self, path: str):
         """Get modified time (async version)"""
