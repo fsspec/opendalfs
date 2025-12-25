@@ -4,6 +4,7 @@ from fsspec.asyn import AbstractAsyncStreamedFile
 from fsspec.spec import AbstractBufferedFile
 from opendal import AsyncFile as OpendalAsyncFile
 from opendal import File as OpendalFile
+from opendal.exceptions import NotFound
 
 logger = logging.getLogger("opendalfs")
 
@@ -114,7 +115,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
                 # Fallback: emulate append by rewriting the full object.
                 try:
                     existing = self.fs.operator.read(self.path)
-                except FileNotFoundError:
+                except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
                     self._opendal_writer = self.fs.operator.open(self.path, "wb")
@@ -246,7 +247,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             else:
                 try:
                     existing = await self.fs.async_fs.read(self.path)
-                except FileNotFoundError:
+                except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
                     self._opendal_writer = await self.fs.async_fs.open(self.path, "wb")
