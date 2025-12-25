@@ -67,6 +67,7 @@ def memory_fs():
     return OpendalFileSystem(
         scheme="memory",
         asynchronous=False,
+        skip_instance_cache=True,
     )
 
 

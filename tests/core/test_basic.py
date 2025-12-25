@@ -42,3 +42,34 @@ async def test_ls_and_info_fsspec_shape(memory_fs):
     assert by_name["a/b.txt"]["type"] == "file"
     assert by_name["a/c/"]["size"] == 0
     assert by_name["a/c/"]["type"] == "directory"
+
+
+def test_copy_and_mv_sync(memory_fs):
+    content = b"hello"
+    memory_fs.pipe_file("src.txt", content)
+
+    memory_fs.cp_file("src.txt", "copied.txt")
+    assert memory_fs.cat_file("src.txt") == content
+    assert memory_fs.cat_file("copied.txt") == content
+
+    memory_fs.mv("src.txt", "moved.txt")
+    assert not memory_fs.exists("src.txt")
+    assert memory_fs.cat_file("moved.txt") == content
+
+
+@pytest.mark.asyncio
+async def test_invalidate_cache_after_mutations(memory_fs):
+    await memory_fs._pipe_file("a/one.txt", b"1")
+    first = await memory_fs._ls("a", detail=True)
+    assert {item["name"] for item in first} == {"a/one.txt"}
+    assert "a" in memory_fs.dircache
+
+    await memory_fs._pipe_file("a/two.txt", b"2")
+    assert "a" not in memory_fs.dircache
+    second = await memory_fs._ls("a", detail=True)
+    assert {item["name"] for item in second} == {"a/one.txt", "a/two.txt"}
+
+    await memory_fs._rm_file("a/one.txt")
+    assert "a" not in memory_fs.dircache
+    third = await memory_fs._ls("a", detail=True)
+    assert {item["name"] for item in third} == {"a/two.txt"}
