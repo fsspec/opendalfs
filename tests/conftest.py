@@ -70,6 +70,13 @@ def memory_fs():
     )
 
 
+@pytest.fixture(params=["memory", "s3"])
+def any_fs(request):
+    if request.param == "memory":
+        return OpendalFileSystem(scheme="memory", asynchronous=False, skip_instance_cache=True)
+    return request.getfixturevalue("s3_fs")
+
+
 @pytest.fixture(scope="function")
 async def event_loop():
     """Create an instance of the default event loop for each test case."""

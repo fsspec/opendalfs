@@ -1,7 +1,7 @@
 from typing import Any
 from fsspec.asyn import AsyncFileSystem
 import logging
-from opendal import AsyncOperator
+from opendal import AsyncOperator, Operator
 from .file import OpendalBufferedFile
 
 logger = logging.getLogger("opendalfs")
@@ -40,6 +40,7 @@ class OpendalFileSystem(AsyncFileSystem):
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
         self.scheme = scheme
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
+        self.operator: Operator = self.async_fs.to_operator()
 
     @staticmethod
     def _fsspec_type_from_mode(mode: Any) -> str:
