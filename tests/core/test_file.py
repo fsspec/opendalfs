@@ -38,20 +38,30 @@ def test_open_write_with_options(memory_fs):
     assert memory_fs.cat_file("opt-write.txt") == data
 
 
-def test_open_write_with_direct_mode(memory_fs):
-    data = b"hello-direct"
-    with memory_fs.open("direct-write.txt", "wb", opendal_write_mode="direct") as f:
+def test_open_write_with_direct_mode_raises(memory_fs):
+    with pytest.raises(ValueError):
+        with memory_fs.open("direct-write.txt", "wb", opendal_write_mode="direct") as f:
+            f.write(b"data")
+
+
+def test_large_write_bypasses_buffer(monkeypatch, memory_fs):
+    from fsspec.spec import AbstractBufferedFile
+
+    data = b"x" * 8
+    called = False
+    original_write = AbstractBufferedFile.write
+
+    def tracking_write(self, payload):
+        nonlocal called
+        called = True
+        return original_write(self, payload)
+
+    monkeypatch.setattr(AbstractBufferedFile, "write", tracking_write)
+    with memory_fs.open("large-write.txt", "wb", block_size=4) as f:
         f.write(data)
 
-    assert memory_fs.cat_file("direct-write.txt") == data
-
-
-def test_open_append_with_direct_mode_raises(memory_fs):
-    memory_fs.pipe_file("append-direct.txt", b"hello")
-
-    with pytest.raises(ValueError):
-        with memory_fs.open("append-direct.txt", "ab", opendal_write_mode="direct") as f:
-            f.write(b"world")
+    assert memory_fs.cat_file("large-write.txt") == data
+    assert not called
 
 
 def test_open_write_with_options_mapping(memory_fs):

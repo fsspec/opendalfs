@@ -187,7 +187,6 @@ def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> N
         secret_access_key=config["secret_access_key"],
         opendal_write_chunk=args.opendal_write_chunk,
         opendal_write_concurrent=args.opendal_write_concurrent,
-        opendal_write_mode=args.opendal_write_mode,
     )
     fs = pafs.PyFileSystem(pafs.FSSpecHandler(backend))
     base = f'{args.prefix}-{size_mb}mb-{uuid4()}'
@@ -267,12 +266,6 @@ def main() -> None:
         "--opendal-write-concurrent",
         type=int,
         default=4,
-    )
-    parser.add_argument(
-        "--opendal-write-mode",
-        choices=("buffered", "direct"),
-        default="buffered",
-        help="Choose buffered or direct write path for opendalfs",
     )
     parser.add_argument(
         "--skip-s3fs",

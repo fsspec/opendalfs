@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from glob import has_magic
-import threading
 from typing import Any
 
 from fsspec.asyn import AsyncFileSystem
@@ -9,7 +8,7 @@ from fsspec.implementations.local import trailing_sep
 import logging
 from opendal import AsyncOperator, Operator
 from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
-from .options import parse_write_mode, pop_write_options
+from .options import pop_write_options
 from opendal.exceptions import NotFound, Unsupported
 
 logger = logging.getLogger("opendalfs")
@@ -46,31 +45,16 @@ class OpendalFileSystem(AsyncFileSystem):
         **kwargs : dict
             Passed to backend implementation
         """
-        self._write_mode = parse_write_mode(kwargs.pop("opendal_write_mode", None))
+        write_mode = kwargs.pop("opendal_write_mode", None)
+        if write_mode is not None and write_mode != "buffered":
+            raise ValueError("opendal_write_mode must be 'buffered'")
         write_options = pop_write_options(kwargs)
 
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
         self.scheme = scheme
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
         self.operator: Operator = self.async_fs.to_operator()
-        self._opendal_args = args
-        self._opendal_kwargs = dict(kwargs)
-        self._owner_thread_id = threading.get_ident()
-        self._thread_local = threading.local()
         self._write_options = write_options
-
-    def get_operator(self) -> Operator:
-        if threading.get_ident() == self._owner_thread_id:
-            return self.operator
-        operator = getattr(self._thread_local, "operator", None)
-        if operator is None:
-            async_fs = AsyncOperator(
-                self.scheme, *self._opendal_args, **self._opendal_kwargs
-            )
-            operator = async_fs.to_operator()
-            self._thread_local.async_fs = async_fs
-            self._thread_local.operator = operator
-        return operator
 
     @staticmethod
     def _fsspec_type_from_mode(mode: Any) -> str:
@@ -231,10 +215,6 @@ class OpendalFileSystem(AsyncFileSystem):
         if "b" not in mode or kwargs.get("compression"):
             raise ValueError
 
-        write_mode = kwargs.pop("opendal_write_mode", None)
-        if write_mode is not None and parse_write_mode(write_mode) == "direct":
-            raise ValueError("opendal_write_mode='direct' is not supported for async")
-
         size = None
         if mode == "rb":
             try:
@@ -278,7 +258,7 @@ class OpendalFileSystem(AsyncFileSystem):
                 base = src.rstrip("/").split("/")[-1]
                 dst = dst.rstrip("/") + "/" + base
             try:
-                self.get_operator().rename(src, dst)
+                self.operator.rename(src, dst)
                 self.invalidate_cache(self._parent(src.rstrip("/")))
                 self.invalidate_cache(self._parent(dst.rstrip("/")))
                 return None

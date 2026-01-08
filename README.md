@@ -72,7 +72,18 @@ uv run python bench/bench_read_write.py --sizes 16,32,64 --files 4 --workers 4
 Configure MinIO access via `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`,
 `OPENDAL_S3_ACCESS_KEY_ID`, and `OPENDAL_S3_SECRET_ACCESS_KEY`.
 
-Use `--opendal-write-mode direct` to bypass buffered writes (sync only; append/async raise).
+You can run MinIO locally with the official binary, for example:
+
+```bash
+./minio server ./minio-data --console-address ":9001"
+```
+
+For profiling, you can install a tool with `uv` (for example `py-spy`) and run:
+
+```bash
+uv tool install py-spy
+uv tool run py-spy record -o bench.svg -- python bench/bench_read_write.py --sizes 16,32,64 --files 4 --workers 4
+```
 
 High write concurrency can stall on some systems. If runs time out, reduce
 `--fsspec-workers` or `--opendal-write-concurrent`.

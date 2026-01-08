@@ -4,14 +4,6 @@ from collections.abc import Mapping
 from typing import Any
 
 
-def parse_write_mode(value: Any | None) -> str:
-    if value is None:
-        return "buffered"
-    if value in ("buffered", "direct"):
-        return value
-    raise ValueError("opendal_write_mode must be 'buffered' or 'direct'")
-
-
 def _normalize_int(name: str, value: Any) -> int:
     if isinstance(value, bool):
         raise TypeError(f"{name} must be an int, not bool")
