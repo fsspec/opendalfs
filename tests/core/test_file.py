@@ -25,6 +25,36 @@ def test_open_write_chunked(any_fs):
     assert any_fs.cat_file("chunked.txt") == b"abcdefgh"
 
 
+def test_open_write_with_options(memory_fs):
+    data = b"hello-opendal"
+    with memory_fs.open(
+        "opt-write.txt",
+        "wb",
+        opendal_write_chunk=4,
+        opendal_write_concurrent=2,
+    ) as f:
+        f.write(data)
+
+    assert memory_fs.cat_file("opt-write.txt") == data
+
+
+def test_open_write_with_options_mapping(memory_fs):
+    data = b"hello-mapping"
+    with memory_fs.open(
+        "opt-write-map.txt",
+        "wb",
+        opendal_write_options={"chunk": 4, "concurrent": 2},
+    ) as f:
+        f.write(data)
+
+    assert memory_fs.cat_file("opt-write-map.txt") == data
+
+
+def test_open_write_with_invalid_options(memory_fs):
+    with pytest.raises(TypeError):
+        memory_fs.open("opt-write-bad.txt", "wb", opendal_write_chunk="4")
+
+
 def test_open_exclusive_create(any_fs):
     any_fs.pipe_file("exists.txt", b"x")
 
@@ -90,3 +120,17 @@ async def test_open_async_append_emulated():
         await f.write(b"world")
 
     assert await fs._cat_file("append.txt") == b"helloworld"
+
+
+@pytest.mark.asyncio
+async def test_cat_file_ranges_async():
+    from opendalfs import OpendalFileSystem
+
+    fs = OpendalFileSystem(scheme="memory", asynchronous=True, skip_instance_cache=True)
+    await fs._pipe_file("range.txt", b"0123456789")
+
+    assert await fs._cat_file("range.txt", start=2, end=5) == b"234"
+    assert await fs._cat_file("range.txt", start=-4) == b"6789"
+    assert await fs._cat_file("range.txt", end=-1) == b"012345678"
+    assert await fs._cat_file("range.txt", start=-4, end=-1) == b"678"
+    assert await fs._cat_file("range.txt", start=5, end=5) == b""
