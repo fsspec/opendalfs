@@ -38,6 +38,22 @@ def test_open_write_with_options(memory_fs):
     assert memory_fs.cat_file("opt-write.txt") == data
 
 
+def test_open_write_with_direct_mode(memory_fs):
+    data = b"hello-direct"
+    with memory_fs.open("direct-write.txt", "wb", opendal_write_mode="direct") as f:
+        f.write(data)
+
+    assert memory_fs.cat_file("direct-write.txt") == data
+
+
+def test_open_append_with_direct_mode_raises(memory_fs):
+    memory_fs.pipe_file("append-direct.txt", b"hello")
+
+    with pytest.raises(ValueError):
+        with memory_fs.open("append-direct.txt", "ab", opendal_write_mode="direct") as f:
+            f.write(b"world")
+
+
 def test_open_write_with_options_mapping(memory_fs):
     data = b"hello-mapping"
     with memory_fs.open(
@@ -80,6 +96,16 @@ async def test_open_async_read_seek():
 
         f.seek(-3, 2)
         assert await f.read() == b"789"
+
+
+@pytest.mark.asyncio
+async def test_open_async_direct_mode_raises():
+    from opendalfs import OpendalFileSystem
+
+    fs = OpendalFileSystem(scheme="memory", asynchronous=True, skip_instance_cache=True)
+
+    with pytest.raises(ValueError):
+        await fs.open_async("direct-async.txt", "wb", opendal_write_mode="direct")
 
 
 @pytest.mark.asyncio

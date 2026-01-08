@@ -12,24 +12,6 @@ import pyarrow.fs as pafs
 import opendal
 
 
-class _OpenOptionsFS:
-    def __init__(self, fs, *, block_size: int | None) -> None:
-        self._fs = fs
-        self._block_size = block_size
-
-    @property
-    def protocol(self):
-        return self._fs.protocol
-
-    def open(self, path, mode="rb", **kwargs):
-        if self._block_size is not None and "block_size" not in kwargs:
-            kwargs["block_size"] = self._block_size
-        return self._fs.open(path, mode=mode, **kwargs)
-
-    def __getattr__(self, name):
-        return getattr(self._fs, name)
-
-
 def _env_first(*names: str) -> str | None:
     for name in names:
         value = os.environ.get(name)
@@ -205,9 +187,9 @@ def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> N
         secret_access_key=config["secret_access_key"],
         opendal_write_chunk=args.opendal_write_chunk,
         opendal_write_concurrent=args.opendal_write_concurrent,
+        opendal_write_mode=args.opendal_write_mode,
     )
-    handler_fs = _OpenOptionsFS(backend, block_size=args.fsspec_block_size)
-    fs = pafs.PyFileSystem(pafs.FSSpecHandler(handler_fs))
+    fs = pafs.PyFileSystem(pafs.FSSpecHandler(backend))
     base = f'{args.prefix}-{size_mb}mb-{uuid4()}'
     write_s, read_s = _run_benchmark(
         fs,
@@ -236,8 +218,7 @@ def _run_arrow_fsspec_s3(config: dict[str, str], args, size_mb: int) -> None:
         },
         config_kwargs={"s3": {"addressing_style": "path"}},
     )
-    handler_fs = _OpenOptionsFS(backend, block_size=args.fsspec_block_size)
-    fs = pafs.PyFileSystem(pafs.FSSpecHandler(handler_fs))
+    fs = pafs.PyFileSystem(pafs.FSSpecHandler(backend))
     base = f'{config["bucket"]}/{args.prefix}-{size_mb}mb-{uuid4()}'
     write_s, read_s = _run_benchmark(
         fs,
@@ -267,12 +248,6 @@ def main() -> None:
         default=1,
         help="Override workers for fsspec-based tests",
     )
-    parser.add_argument(
-        "--fsspec-block-size",
-        type=int,
-        default=None,
-        help="Block size in bytes for fsspec open()",
-    )
     parser.add_argument("--prefix", default="opendalfs-repro")
     parser.add_argument("--bucket")
     parser.add_argument("--region")
@@ -292,6 +267,12 @@ def main() -> None:
         "--opendal-write-concurrent",
         type=int,
         default=4,
+    )
+    parser.add_argument(
+        "--opendal-write-mode",
+        choices=("buffered", "direct"),
+        default="buffered",
+        help="Choose buffered or direct write path for opendalfs",
     )
     parser.add_argument(
         "--skip-s3fs",
