@@ -12,7 +12,7 @@ classifiers = [
 requires-python = ">= 3.12"
 dependencies = [
     "fsspec",
-    "opendal",
+    "opendal>=0.46.0",
 ]
 
 [project.entry-points."fsspec.specs"]
@@ -35,8 +35,15 @@ test = [
     "boto3",            # AWS S3 client for environment provision
 ]
 
+# Benchmark dependencies
+bench = [
+    "pyarrow",         # Arrow filesystem benchmarks
+    "s3fs",            # S3 filesystem support
+    "boto3",           # AWS S3 client for MinIO provisioning
+]
+
 # All development dependencies
-all = ["opendalfs[dev,test]"]
+all = ["opendalfs[dev,test,bench]"]
 
 [tool.setuptools]
 packages = ["opendalfs"]

@@ -15,6 +15,27 @@ def test_write_read(s3_fs):
         assert fs.cat_file("test.txt") == content
 
 
+def test_cat_file_ranges(any_fs):
+    data = b"0123456789"
+    any_fs.pipe_file("range.txt", data)
+
+    assert any_fs.cat_file("range.txt", start=2, end=5) == b"234"
+    assert any_fs.cat_file("range.txt", start=-4) == b"6789"
+    assert any_fs.cat_file("range.txt", end=-1) == b"012345678"
+    assert any_fs.cat_file("range.txt", start=-4, end=-1) == b"678"
+    assert any_fs.cat_file("range.txt", start=5, end=5) == b""
+
+
+def test_pipe_file_with_write_options(memory_fs):
+    data = b"hello-world"
+    memory_fs.pipe_file(
+        "pipe-write.txt",
+        data,
+        opendal_write_options={"chunk": 4, "concurrent": 2},
+    )
+    assert memory_fs.cat_file("pipe-write.txt") == data
+
+
 @pytest.mark.asyncio
 async def test_ls_and_info_fsspec_shape(memory_fs):
     await memory_fs._pipe_file("a/b.txt", b"hello")
