@@ -29,13 +29,9 @@ class OpendalBufferedFile(AbstractBufferedFile):
         size=None,
         **kwargs,
     ):
-        write_mode = kwargs.pop("opendal_write_mode", None)
         write_options = pop_write_options(
             kwargs, defaults=getattr(fs, "_write_options", None)
         )
-
-        if write_mode is not None and write_mode != "buffered":
-            raise ValueError("opendal_write_mode must be 'buffered'")
 
         super().__init__(
             fs,
@@ -70,6 +66,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
         return self.fs.operator.read(self.path, offset=start, size=length)
 
     def _should_bypass_buffer(self, data) -> bool:
+        # Avoid double-buffering on large single writes in pure write modes.
         if self.mode not in {"wb", "xb"}:
             return False
         if self._append_via_write:
@@ -236,12 +233,9 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
         self._exclusive_create = mode == "xb"
         normalized_mode = "wb" if self._exclusive_create else mode
 
-        write_mode = kwargs.pop("opendal_write_mode", None)
         write_options = pop_write_options(
             kwargs, defaults=getattr(fs, "_write_options", None)
         )
-        if write_mode is not None and write_mode != "buffered":
-            raise ValueError("opendal_write_mode must be 'buffered'")
 
         super().__init__(
             fs,

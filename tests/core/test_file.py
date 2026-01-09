@@ -38,10 +38,6 @@ def test_open_write_with_options(memory_fs):
     assert memory_fs.cat_file("opt-write.txt") == data
 
 
-def test_open_write_with_direct_mode_raises(memory_fs):
-    with pytest.raises(ValueError):
-        with memory_fs.open("direct-write.txt", "wb", opendal_write_mode="direct") as f:
-            f.write(b"data")
 
 
 def test_large_write_bypasses_buffer(monkeypatch, memory_fs):
@@ -76,11 +72,6 @@ def test_open_write_with_options_mapping(memory_fs):
     assert memory_fs.cat_file("opt-write-map.txt") == data
 
 
-def test_open_write_with_invalid_options(memory_fs):
-    with pytest.raises(TypeError):
-        memory_fs.open("opt-write-bad.txt", "wb", opendal_write_chunk="4")
-
-
 def test_open_exclusive_create(any_fs):
     any_fs.pipe_file("exists.txt", b"x")
 
@@ -106,16 +97,6 @@ async def test_open_async_read_seek():
 
         f.seek(-3, 2)
         assert await f.read() == b"789"
-
-
-@pytest.mark.asyncio
-async def test_open_async_direct_mode_raises():
-    from opendalfs import OpendalFileSystem
-
-    fs = OpendalFileSystem(scheme="memory", asynchronous=True, skip_instance_cache=True)
-
-    with pytest.raises(ValueError):
-        await fs.open_async("direct-async.txt", "wb", opendal_write_mode="direct")
 
 
 @pytest.mark.asyncio

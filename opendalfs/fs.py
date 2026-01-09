@@ -45,9 +45,6 @@ class OpendalFileSystem(AsyncFileSystem):
         **kwargs : dict
             Passed to backend implementation
         """
-        write_mode = kwargs.pop("opendal_write_mode", None)
-        if write_mode is not None and write_mode != "buffered":
-            raise ValueError("opendal_write_mode must be 'buffered'")
         write_options = pop_write_options(kwargs)
 
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
