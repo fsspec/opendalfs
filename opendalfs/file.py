@@ -5,7 +5,6 @@ from fsspec.spec import AbstractBufferedFile
 from opendal import AsyncFile as OpendalAsyncFile
 from opendal import File as OpendalFile
 from opendal.exceptions import NotFound
-from .options import pop_write_options
 
 logger = logging.getLogger("opendalfs")
 
@@ -29,10 +28,6 @@ class OpendalBufferedFile(AbstractBufferedFile):
         size=None,
         **kwargs,
     ):
-        write_options = pop_write_options(
-            kwargs, defaults=getattr(fs, "_write_options", None)
-        )
-
         super().__init__(
             fs,
             path,
@@ -48,7 +43,6 @@ class OpendalBufferedFile(AbstractBufferedFile):
         self._opendal_writer = None
         self._append_via_write = False
         self._initiated = False
-        self._write_options = write_options
 
         if mode == "ab":
             # Match python semantics: append writes start from end-of-file.
@@ -64,58 +58,6 @@ class OpendalBufferedFile(AbstractBufferedFile):
 
         length = end - start
         return self.fs.operator.read(self.path, offset=start, size=length)
-
-    def _should_bypass_buffer(self, data) -> bool:
-        # Avoid double-buffering on large single writes in pure write modes.
-        if self.mode not in {"wb", "xb"}:
-            return False
-        if self._append_via_write:
-            return False
-        blocksize = getattr(self, "blocksize", None)
-        if not isinstance(blocksize, int) or blocksize <= 0:
-            return False
-        try:
-            size = len(data)
-        except TypeError:
-            return False
-        if size < blocksize:
-            return False
-        return self.buffer.tell() == 0
-
-    def write(self, data):
-        if not self._should_bypass_buffer(data):
-            return super().write(data)
-        if not self.writable():
-            raise ValueError("File not in write mode")
-        if self.closed:
-            raise ValueError("I/O operation on closed file.")
-        if self.forced:
-            raise ValueError("This file has been force-flushed, can only close")
-
-        if not data:
-            return 0
-
-        if self.offset is None:
-            self.offset = 0
-            try:
-                self._initiate_upload()
-            except Exception:
-                self.closed = True
-                raise
-
-        if self._opendal_writer is None:
-            self._opendal_writer = self.fs.operator.open(
-                self.path, "wb", **self._write_options
-            )
-
-        if not isinstance(data, (bytes, bytearray)):
-            data = memoryview(data).tobytes()
-
-        self._opendal_writer.write(data)
-        size = len(data)
-        self.loc += size
-        self.offset += size
-        return size
 
     def _upload_chunk(self, final: bool = False):
         """Upload partial chunk of data"""
@@ -137,13 +79,11 @@ class OpendalBufferedFile(AbstractBufferedFile):
 
         if self.mode == "ab" and self._append_via_write:
             # Let OpenDAL handle append semantics if the backend supports it.
-            self.fs.operator.write(self.path, chunk, append=True, **self._write_options)
+            self.fs.operator.write(self.path, chunk, append=True)
             return None
 
         if self._opendal_writer is None:
-            self._opendal_writer = self.fs.operator.open(
-                self.path, "wb", **self._write_options
-            )
+            self._opendal_writer = self.fs.operator.open(self.path, "wb")
 
         if chunk:
             self._opendal_writer.write(chunk)
@@ -173,9 +113,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
                 except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
-                    self._opendal_writer = self.fs.operator.open(
-                        self.path, "wb", **self._write_options
-                    )
+                    self._opendal_writer = self.fs.operator.open(self.path, "wb")
                     self._opendal_writer.write(existing)
                     self.offset = len(existing)
 
@@ -188,7 +126,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
 
         if self._opendal_writer is None:
             # Ensure empty files are created on close.
-            self.fs.operator.write(self.path, b"", **self._write_options)
+            self.fs.operator.write(self.path, b"")
             return
 
         self._opendal_writer.flush()
@@ -232,11 +170,6 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
     ):
         self._exclusive_create = mode == "xb"
         normalized_mode = "wb" if self._exclusive_create else mode
-
-        write_options = pop_write_options(
-            kwargs, defaults=getattr(fs, "_write_options", None)
-        )
-
         super().__init__(
             fs,
             path,
@@ -252,7 +185,6 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
         self._opendal_writer = None
         self._append_via_write = False
         self._initiated = False
-        self._write_options = write_options
 
     async def _fetch_range(self, start: int, end: int):
         if start >= end:
@@ -279,15 +211,11 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             return None
 
         if self.mode == "ab" and self._append_via_write:
-            await self.fs.async_fs.write(
-                self.path, chunk, append=True, **self._write_options
-            )
+            await self.fs.async_fs.write(self.path, chunk, append=True)
             return None
 
         if self._opendal_writer is None:
-            self._opendal_writer = await self.fs.async_fs.open(
-                self.path, "wb", **self._write_options
-            )
+            self._opendal_writer = await self.fs.async_fs.open(self.path, "wb")
 
         await self._opendal_writer.write(chunk)
 
@@ -313,9 +241,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
                 except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
-                    self._opendal_writer = await self.fs.async_fs.open(
-                        self.path, "wb", **self._write_options
-                    )
+                    self._opendal_writer = await self.fs.async_fs.open(self.path, "wb")
                     await self._opendal_writer.write(existing)
                     self.offset = len(existing)
 
@@ -326,7 +252,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             return
 
         if self._opendal_writer is None:
-            await self.fs.async_fs.write(self.path, b"", **self._write_options)
+            await self.fs.async_fs.write(self.path, b"")
             return
 
         try:

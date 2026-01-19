@@ -26,16 +26,6 @@ def test_cat_file_ranges(any_fs):
     assert any_fs.cat_file("range.txt", start=5, end=5) == b""
 
 
-def test_pipe_file_with_write_options(memory_fs):
-    data = b"hello-world"
-    memory_fs.pipe_file(
-        "pipe-write.txt",
-        data,
-        opendal_write_options={"chunk": 4, "concurrent": 2},
-    )
-    assert memory_fs.cat_file("pipe-write.txt") == data
-
-
 @pytest.mark.asyncio
 async def test_ls_and_info_fsspec_shape(memory_fs):
     await memory_fs._pipe_file("a/b.txt", b"hello")

@@ -8,11 +8,9 @@ from fsspec.implementations.local import trailing_sep
 import logging
 from opendal import AsyncOperator, Operator
 from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
-from .options import pop_write_options
 from opendal.exceptions import NotFound, Unsupported
 
 logger = logging.getLogger("opendalfs")
-
 
 class OpendalFileSystem(AsyncFileSystem):
     """OpenDAL implementation of fsspec AsyncFileSystem.
@@ -45,13 +43,10 @@ class OpendalFileSystem(AsyncFileSystem):
         **kwargs : dict
             Passed to backend implementation
         """
-        write_options = pop_write_options(kwargs)
-
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
         self.scheme = scheme
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
         self.operator: Operator = self.async_fs.to_operator()
-        self._write_options = write_options
 
     @staticmethod
     def _fsspec_type_from_mode(mode: Any) -> str:
@@ -176,8 +171,7 @@ class OpendalFileSystem(AsyncFileSystem):
         """Write bytes into file (async implementation)."""
         if mode == "create" and await self._exists(path):
             raise FileExistsError(path)
-        write_opts = pop_write_options(kwargs, defaults=self._write_options)
-        await self.async_fs.write(path, value, **write_opts)
+        await self.async_fs.write(path, value)
         self.invalidate_cache(self._parent(path.rstrip("/")))
 
     async def _opendal_rename(self, source: str, target: str) -> None:

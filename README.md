@@ -86,7 +86,7 @@ uv tool run py-spy record -o bench.svg -- python bench/bench_read_write.py --siz
 ```
 
 High write concurrency can stall on some systems. If runs time out, reduce
-`--fsspec-workers` or `--opendal-write-concurrent`.
+`--fsspec-workers`.
 
 ## Status
 

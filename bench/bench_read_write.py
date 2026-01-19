@@ -185,8 +185,6 @@ def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> N
         endpoint=config["endpoint"],
         access_key_id=config["access_key_id"],
         secret_access_key=config["secret_access_key"],
-        opendal_write_chunk=args.opendal_write_chunk,
-        opendal_write_concurrent=args.opendal_write_concurrent,
     )
     fs = pafs.PyFileSystem(pafs.FSSpecHandler(backend))
     base = f'{args.prefix}-{size_mb}mb-{uuid4()}'
@@ -256,16 +254,6 @@ def main() -> None:
     parser.add_argument(
         "--opendalfs-path",
         help="Optional local path to opendalfs repo (adds to sys.path)",
-    )
-    parser.add_argument(
-        "--opendal-write-chunk",
-        type=int,
-        default=8 * 1024 * 1024,
-    )
-    parser.add_argument(
-        "--opendal-write-concurrent",
-        type=int,
-        default=4,
     )
     parser.add_argument(
         "--skip-s3fs",

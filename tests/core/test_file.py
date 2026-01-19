@@ -25,53 +25,6 @@ def test_open_write_chunked(any_fs):
     assert any_fs.cat_file("chunked.txt") == b"abcdefgh"
 
 
-def test_open_write_with_options(memory_fs):
-    data = b"hello-opendal"
-    with memory_fs.open(
-        "opt-write.txt",
-        "wb",
-        opendal_write_chunk=4,
-        opendal_write_concurrent=2,
-    ) as f:
-        f.write(data)
-
-    assert memory_fs.cat_file("opt-write.txt") == data
-
-
-
-
-def test_large_write_bypasses_buffer(monkeypatch, memory_fs):
-    from fsspec.spec import AbstractBufferedFile
-
-    data = b"x" * 8
-    called = False
-    original_write = AbstractBufferedFile.write
-
-    def tracking_write(self, payload):
-        nonlocal called
-        called = True
-        return original_write(self, payload)
-
-    monkeypatch.setattr(AbstractBufferedFile, "write", tracking_write)
-    with memory_fs.open("large-write.txt", "wb", block_size=4) as f:
-        f.write(data)
-
-    assert memory_fs.cat_file("large-write.txt") == data
-    assert not called
-
-
-def test_open_write_with_options_mapping(memory_fs):
-    data = b"hello-mapping"
-    with memory_fs.open(
-        "opt-write-map.txt",
-        "wb",
-        opendal_write_options={"chunk": 4, "concurrent": 2},
-    ) as f:
-        f.write(data)
-
-    assert memory_fs.cat_file("opt-write-map.txt") == data
-
-
 def test_open_exclusive_create(any_fs):
     any_fs.pipe_file("exists.txt", b"x")
 
