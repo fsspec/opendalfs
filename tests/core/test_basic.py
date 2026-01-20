@@ -3,6 +3,7 @@
 import logging
 
 import pytest
+from opendalfs import WriteOptions
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def test_pipe_file_with_write_options(memory_fs):
     memory_fs.pipe_file(
         "pipe-write.txt",
         data,
-        opendal_write_options={"chunk": 4, "concurrent": 2},
+        write_options=WriteOptions(chunk=4, concurrent=2),
     )
     assert memory_fs.cat_file("pipe-write.txt") == data
 

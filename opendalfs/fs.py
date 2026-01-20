@@ -8,7 +8,7 @@ from fsspec.implementations.local import trailing_sep
 import logging
 from opendal import AsyncOperator, Operator
 from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
-from .options import pop_write_options
+from .options import WriteOptions, pop_write_options
 from opendal.exceptions import NotFound, Unsupported
 
 logger = logging.getLogger("opendalfs")
@@ -29,6 +29,7 @@ class OpendalFileSystem(AsyncFileSystem):
         *args: Any,
         asynchronous: bool = False,
         loop=None,
+        write_options: WriteOptions | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize OpendalFileSystem.
@@ -44,13 +45,18 @@ class OpendalFileSystem(AsyncFileSystem):
         **kwargs : dict
             Passed to backend implementation
         """
-        write_options = pop_write_options(kwargs)
+        if "write_options" in kwargs:
+            if write_options is not None:
+                raise TypeError("write_options specified multiple times")
+            write_options = kwargs.pop("write_options")
+        if write_options is not None and not isinstance(write_options, WriteOptions):
+            raise TypeError("write_options must be WriteOptions")
+        self._write_options = write_options
 
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
         self.scheme = scheme
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
         self.operator: Operator = self.async_fs.to_operator()
-        self._write_options = write_options
 
     @staticmethod
     def _fsspec_type_from_mode(mode: Any) -> str:

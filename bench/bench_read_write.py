@@ -195,6 +195,10 @@ def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> N
 
     import opendalfs
 
+    write_options = opendalfs.WriteOptions(
+        chunk=args.write_chunk,
+        concurrent=args.write_concurrent,
+    )
     opendalfs.register_opendal_protocols(["s3"])
     backend = opendalfs.OpendalFileSystem(
         "s3",
@@ -203,8 +207,7 @@ def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> N
         endpoint=config["endpoint"],
         access_key_id=config["access_key_id"],
         secret_access_key=config["secret_access_key"],
-        opendal_write_chunk=args.opendal_write_chunk,
-        opendal_write_concurrent=args.opendal_write_concurrent,
+        write_options=write_options,
     )
     handler_fs = _OpenOptionsFS(backend, block_size=args.fsspec_block_size)
     fs = pafs.PyFileSystem(pafs.FSSpecHandler(handler_fs))
@@ -284,14 +287,16 @@ def main() -> None:
         help="Optional local path to opendalfs repo (adds to sys.path)",
     )
     parser.add_argument(
-        "--opendal-write-chunk",
+        "--write-chunk",
         type=int,
         default=8 * 1024 * 1024,
+        help="OpenDAL write chunk size in bytes",
     )
     parser.add_argument(
-        "--opendal-write-concurrent",
+        "--write-concurrent",
         type=int,
         default=4,
+        help="OpenDAL write concurrent setting",
     )
     parser.add_argument(
         "--skip-s3fs",

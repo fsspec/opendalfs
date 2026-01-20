@@ -1,5 +1,7 @@
 import pytest
 
+from opendalfs import WriteOptions
+
 
 def test_open_read_seek(any_fs):
     data = b"0123456789"
@@ -30,24 +32,21 @@ def test_open_write_with_options(memory_fs):
     with memory_fs.open(
         "opt-write.txt",
         "wb",
-        opendal_write_chunk=4,
-        opendal_write_concurrent=2,
+        write_options=WriteOptions(chunk=4, concurrent=2),
     ) as f:
         f.write(data)
 
     assert memory_fs.cat_file("opt-write.txt") == data
 
 
-def test_open_write_with_options_mapping(memory_fs):
-    data = b"hello-mapping"
-    with memory_fs.open(
-        "opt-write-map.txt",
-        "wb",
-        opendal_write_options={"chunk": 4, "concurrent": 2},
-    ) as f:
-        f.write(data)
-
-    assert memory_fs.cat_file("opt-write-map.txt") == data
+def test_open_write_with_invalid_write_options(memory_fs):
+    with pytest.raises(TypeError):
+        with memory_fs.open(
+            "opt-write-map.txt",
+            "wb",
+            write_options={"chunk": 4, "concurrent": 2},
+        ) as f:
+            f.write(b"noop")
 
 
 def test_write_bypasses_fsspec_buffer(monkeypatch, memory_fs):

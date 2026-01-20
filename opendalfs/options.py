@@ -1,44 +1,58 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 
-def build_write_options(
-    *,
-    defaults: Mapping[str, Any] | None = None,
-    write_options: Mapping[str, Any] | None = None,
-    write_chunk: Any | None = None,
-    write_concurrent: Any | None = None,
-) -> dict[str, Any]:
-    opts: dict[str, Any] = {}
-    if defaults:
-        opts.update(defaults)
-    if write_options is not None:
-        if not isinstance(write_options, Mapping):
-            raise TypeError("opendal_write_options must be a mapping")
-        opts.update(write_options)
-    if write_chunk is not None:
-        opts["chunk"] = write_chunk
-    if write_concurrent is not None:
-        opts["concurrent"] = write_concurrent
-    return opts
+@dataclass(frozen=True)
+class WriteOptions:
+    chunk: int | None = None
+    concurrent: int | None = None
+    extra: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.extra, Mapping):
+            raise TypeError("WriteOptions.extra must be a mapping")
+
+    def to_opendal_kwargs(self) -> dict[str, Any]:
+        opts: dict[str, Any] = dict(self.extra)
+        if self.chunk is not None:
+            opts["chunk"] = self.chunk
+        if self.concurrent is not None:
+            opts["concurrent"] = self.concurrent
+        return opts
+
+    def merge(self, override: "WriteOptions | None") -> "WriteOptions":
+        if override is None:
+            return self
+        extra = dict(self.extra)
+        extra.update(override.extra)
+        chunk = override.chunk if override.chunk is not None else self.chunk
+        concurrent = (
+            override.concurrent
+            if override.concurrent is not None
+            else self.concurrent
+        )
+        return WriteOptions(chunk=chunk, concurrent=concurrent, extra=extra)
+
+
+def _ensure_write_options(value: WriteOptions | None) -> WriteOptions | None:
+    if value is None:
+        return None
+    if not isinstance(value, WriteOptions):
+        raise TypeError("write_options must be WriteOptions")
+    return value
 
 
 def pop_write_options(
-    kwargs: dict[str, Any], *, defaults: Mapping[str, Any] | None = None
+    kwargs: dict[str, Any],
+    *,
+    defaults: WriteOptions | None = None,
 ) -> dict[str, Any]:
-    if "write_chunk" in kwargs or "write_concurrent" in kwargs:
-        raise TypeError(
-            "Use opendal_write_chunk/opendal_write_concurrent instead of "
-            "write_chunk/write_concurrent."
-        )
-    write_options = kwargs.pop("opendal_write_options", None)
-    write_chunk = kwargs.pop("opendal_write_chunk", None)
-    write_concurrent = kwargs.pop("opendal_write_concurrent", None)
-    return build_write_options(
-        defaults=defaults,
-        write_options=write_options,
-        write_chunk=write_chunk,
-        write_concurrent=write_concurrent,
-    )
+    override = _ensure_write_options(kwargs.pop("write_options", None))
+    if defaults is None:
+        merged = override or WriteOptions()
+    else:
+        merged = defaults.merge(override)
+    return merged.to_opendal_kwargs()

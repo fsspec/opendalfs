@@ -80,18 +80,24 @@ class OpendalBufferedFile(AbstractBufferedFile):
                 return False
             if self.mode == "ab" and self._append_via_write:
                 if not self.fs.operator.exists(self.path):
-                    self.fs.operator.write(self.path, b"")
+                    self.fs.operator.write(
+                        self.path, b"", **self._write_options
+                    )
                 return None
             self._commit_upload()
             return None
 
         if self.mode == "ab" and self._append_via_write:
             # Let OpenDAL handle append semantics if the backend supports it.
-            self.fs.operator.write(self.path, chunk, append=True)
+            self.fs.operator.write(
+                self.path, chunk, append=True, **self._write_options
+            )
             return None
 
         if self._opendal_writer is None:
-            self._opendal_writer = self.fs.operator.open(self.path, "wb")
+            self._opendal_writer = self.fs.operator.open(
+                self.path, "wb", **self._write_options
+            )
 
         if chunk:
             self._opendal_writer.write(chunk)
@@ -302,17 +308,23 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
                 return False
             if self.mode == "ab" and self._append_via_write:
                 if not await self.fs.async_fs.exists(self.path):
-                    await self.fs.async_fs.write(self.path, b"")
+                    await self.fs.async_fs.write(
+                        self.path, b"", **self._write_options
+                    )
                 return None
             await self._commit_upload()
             return None
 
         if self.mode == "ab" and self._append_via_write:
-            await self.fs.async_fs.write(self.path, chunk, append=True)
+            await self.fs.async_fs.write(
+                self.path, chunk, append=True, **self._write_options
+            )
             return None
 
         if self._opendal_writer is None:
-            self._opendal_writer = await self.fs.async_fs.open(self.path, "wb")
+            self._opendal_writer = await self.fs.async_fs.open(
+                self.path, "wb", **self._write_options
+            )
 
         await self._opendal_writer.write(chunk)
 
