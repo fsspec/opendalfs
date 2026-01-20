@@ -15,6 +15,16 @@ def test_write_read(s3_fs):
         assert fs.cat_file("test.txt") == content
 
 
+def test_pipe_file_with_write_options(memory_fs):
+    data = b"hello-world"
+    memory_fs.pipe_file(
+        "pipe-write.txt",
+        data,
+        opendal_write_options={"chunk": 4, "concurrent": 2},
+    )
+    assert memory_fs.cat_file("pipe-write.txt") == data
+
+
 def test_cat_file_ranges(any_fs):
     data = b"0123456789"
     any_fs.pipe_file("range.txt", data)
