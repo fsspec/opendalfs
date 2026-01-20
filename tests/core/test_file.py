@@ -90,3 +90,17 @@ async def test_open_async_append_emulated():
         await f.write(b"world")
 
     assert await fs._cat_file("append.txt") == b"helloworld"
+
+
+@pytest.mark.asyncio
+async def test_cat_file_ranges_async():
+    from opendalfs import OpendalFileSystem
+
+    fs = OpendalFileSystem(scheme="memory", asynchronous=True, skip_instance_cache=True)
+    await fs._pipe_file("range.txt", b"0123456789")
+
+    assert await fs._cat_file("range.txt", start=2, end=5) == b"234"
+    assert await fs._cat_file("range.txt", start=-4) == b"6789"
+    assert await fs._cat_file("range.txt", end=-1) == b"012345678"
+    assert await fs._cat_file("range.txt", start=-4, end=-1) == b"678"
+    assert await fs._cat_file("range.txt", start=5, end=5) == b""

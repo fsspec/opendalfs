@@ -135,22 +135,37 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _cat_file(self, path: str, start: int | None = None, end: int | None = None, **kwargs):
         """Get file content as bytes (async implementation)."""
-        data = await self.async_fs.read(path)
         if start is None and end is None:
-            return data
+            return await self.async_fs.read(path)
 
-        size = len(data)
+        size = None
+        if (start is not None and start < 0) or (end is not None and end < 0):
+            try:
+                info = await self.async_fs.stat(path)
+            except NotFound as err:
+                raise FileNotFoundError(path) from err
+            size = info.content_length
+
         if start is None:
             start = 0
         elif start < 0:
             start = max(0, size + start)
 
         if end is None:
-            end = size
+            if size is not None:
+                end = size
         elif end < 0:
             end = size + end
 
-        return data[start:end]
+        if end is None:
+            if start == 0:
+                return await self.async_fs.read(path)
+            return await self.async_fs.read(path, offset=start)
+
+        length = end - start
+        if length <= 0:
+            return b""
+        return await self.async_fs.read(path, offset=start, size=length)
 
     async def _pipe_file(self, path: str, value: bytes, mode: str = "overwrite", **kwargs) -> None:
         """Write bytes into file (async implementation)."""

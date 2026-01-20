@@ -56,13 +56,8 @@ class OpendalBufferedFile(AbstractBufferedFile):
         if start >= end:
             return b""
 
-        # Follow s3fs style: make an independent range read request (no shared cursor).
-        reader = self.fs.operator.open(self.path, "rb")
-        try:
-            reader.seek(start)
-            return reader.read(end - start)
-        finally:
-            reader.close()
+        length = end - start
+        return self.fs.operator.read(self.path, offset=start, size=length)
 
     def _upload_chunk(self, final: bool = False):
         """Upload partial chunk of data"""
@@ -195,12 +190,8 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
         if start >= end:
             return b""
 
-        reader = await self.fs.async_fs.open(self.path, "rb")
-        try:
-            await reader.seek(start)
-            return await reader.read(end - start)
-        finally:
-            await reader.close()
+        length = end - start
+        return await self.fs.async_fs.read(self.path, offset=start, size=length)
 
     async def _upload_chunk(self, final: bool = False):
         if not self._initiated:
