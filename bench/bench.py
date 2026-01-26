@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import fsspec
@@ -19,8 +18,8 @@ class _OpenOptionsFS:
         fs,
         *,
         block_size: int | None,
-        cache_type: str | None = None,
-        cache_options: dict | None = None,
+        cache_type: str | None,
+        cache_options: dict | None,
     ) -> None:
         self._fs = fs
         self._block_size = block_size
@@ -158,23 +157,15 @@ def _run_write(
     base: str,
     size_mb: int,
     files: int,
-    workers: int,
     stream_buffer_size: int | None,
 ) -> float:
     payload = b"x" * (size_mb * 1024 * 1024)
     paths = [f"{base}/file-{i}.bin" for i in range(files)]
 
-    def write_one(path: str) -> None:
+    start = time.perf_counter()
+    for path in paths:
         with fs.open_output_stream(path, buffer_size=stream_buffer_size) as writer:
             writer.write(payload)
-
-    start = time.perf_counter()
-    if workers > 1:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            list(pool.map(write_one, paths))
-    else:
-        for path in paths:
-            write_one(path)
     return time.perf_counter() - start
 
 
@@ -183,25 +174,17 @@ def _run_read(
     base: str,
     size_mb: int,
     files: int,
-    workers: int,
     stream_buffer_size: int | None,
 ) -> float:
     payload = b"x" * (size_mb * 1024 * 1024)
     paths = [f"{base}/file-{i}.bin" for i in range(files)]
 
-    def read_one(path: str) -> None:
+    start = time.perf_counter()
+    for path in paths:
         with fs.open_input_stream(path, buffer_size=stream_buffer_size) as reader:
             data = reader.read()
         if data != payload:
             raise RuntimeError(f"data mismatch for {path}")
-
-    start = time.perf_counter()
-    if workers > 1:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            list(pool.map(read_one, paths))
-    else:
-        for path in paths:
-            read_one(path)
     return time.perf_counter() - start
 
 
@@ -301,7 +284,12 @@ def _arrow_fsspec_s3_fs(config: dict[str, str], args) -> pafs.FileSystem | None:
         default_fill_cache=args.s3fs_fill_cache,
         max_concurrency=args.s3fs_max_concurrency,
     )
-    handler_fs = _OpenOptionsFS(backend, block_size=args.fsspec_block_size)
+    handler_fs = _OpenOptionsFS(
+        backend,
+        block_size=args.fsspec_block_size,
+        cache_type=args.fsspec_cache_type,
+        cache_options=args.fsspec_cache_options,
+    )
     return pafs.PyFileSystem(pafs.FSSpecHandler(handler_fs))
 
 
@@ -319,7 +307,12 @@ def _get_manifest_base(manifest: dict, size_mb: int, label: str) -> str:
         raise SystemExit(f"missing manifest entry for size {size_mb} and {label}") from exc
 
 
-def _record_manifest_base(manifest: dict, size_mb: int, label: str, base: str) -> None:
+def _record_manifest_base(
+    manifest: dict,
+    size_mb: int,
+    label: str,
+    base: str,
+) -> None:
     manifest.setdefault(str(size_mb), {})[label] = base
 
 
@@ -335,14 +328,7 @@ def _run_write_backends(config: dict[str, str], args, manifest: dict) -> None:
     for size_mb in args.sizes:
         base = _default_base(config, args, size_mb, "arrow-direct")
         _record_manifest_base(manifest, size_mb, "arrow-direct", base)
-        write_s = _run_write(
-            fs_arrow,
-            base,
-            size_mb,
-            args.files,
-            args.workers,
-            args.stream_buffer_size,
-        )
+        write_s = _run_write(fs_arrow, base, size_mb, args.files, args.stream_buffer_size)
         _report("arrow-direct", size_mb, args.files, "write", write_s)
 
         base = _default_base(config, args, size_mb, "arrow-fsspec-opendalfs")
@@ -352,7 +338,6 @@ def _run_write_backends(config: dict[str, str], args, manifest: dict) -> None:
             base,
             size_mb,
             args.files,
-            args.fsspec_workers,
             args.stream_buffer_size,
         )
         _report("arrow-fsspec-opendalfs", size_mb, args.files, "write", write_s)
@@ -365,7 +350,6 @@ def _run_write_backends(config: dict[str, str], args, manifest: dict) -> None:
                 base,
                 size_mb,
                 args.files,
-                args.fsspec_workers,
                 args.stream_buffer_size,
             )
             _report("arrow-fsspec-s3", size_mb, args.files, "write", write_s)
@@ -382,14 +366,7 @@ def _run_read_backends(config: dict[str, str], args, manifest: dict) -> None:
 
     for size_mb in args.sizes:
         base = _get_manifest_base(manifest, size_mb, "arrow-direct")
-        read_s = _run_read(
-            fs_arrow,
-            base,
-            size_mb,
-            args.files,
-            args.workers,
-            args.stream_buffer_size,
-        )
+        read_s = _run_read(fs_arrow, base, size_mb, args.files, args.stream_buffer_size)
         _report("arrow-direct", size_mb, args.files, "read", read_s)
 
         base = _get_manifest_base(manifest, size_mb, "arrow-fsspec-opendalfs")
@@ -398,7 +375,6 @@ def _run_read_backends(config: dict[str, str], args, manifest: dict) -> None:
             base,
             size_mb,
             args.files,
-            args.fsspec_workers,
             args.stream_buffer_size,
         )
         _report("arrow-fsspec-opendalfs", size_mb, args.files, "read", read_s)
@@ -410,7 +386,6 @@ def _run_read_backends(config: dict[str, str], args, manifest: dict) -> None:
                 base,
                 size_mb,
                 args.files,
-                args.fsspec_workers,
                 args.stream_buffer_size,
             )
             _report("arrow-fsspec-s3", size_mb, args.files, "read", read_s)
@@ -425,22 +400,24 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--files", type=int, default=4)
     parser.add_argument(
-        "--workers",
-        type=int,
-        default=4,
-        help="Workers for arrow-direct tests",
-    )
-    parser.add_argument(
-        "--fsspec-workers",
-        type=int,
-        default=None,
-        help="Override workers for fsspec-based tests (default: same as --workers)",
-    )
-    parser.add_argument(
         "--stream-buffer-size",
         type=int,
         default=0,
         help="Buffer size for Arrow input/output streams (default: 0)",
+    )
+    parser.add_argument("--bucket")
+    parser.add_argument("--region")
+    parser.add_argument("--endpoint")
+    parser.add_argument("--access-key-id")
+    parser.add_argument("--secret-access-key")
+    parser.add_argument(
+        "--opendalfs-path",
+        help="Optional local path to opendalfs repo (adds to sys.path)",
+    )
+    parser.add_argument(
+        "--skip-s3fs",
+        action="store_true",
+        help="Skip fsspec+s3fs comparison",
     )
     parser.add_argument(
         "--fsspec-block-size",
@@ -458,27 +435,6 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         type=_parse_cache_options,
         default=None,
         help='JSON object for fsspec cache options (default: null)',
-    )
-    parser.add_argument("--bucket")
-    parser.add_argument("--region")
-    parser.add_argument("--endpoint")
-    parser.add_argument("--access-key-id")
-    parser.add_argument("--secret-access-key")
-    parser.add_argument(
-        "--opendalfs-path",
-        help="Optional local path to opendalfs repo (adds to sys.path)",
-    )
-    parser.add_argument(
-        "--write-chunk",
-        type=int,
-        default=8 * 1024 * 1024,
-        help="OpenDAL write chunk size in bytes",
-    )
-    parser.add_argument(
-        "--write-concurrent",
-        type=int,
-        default=4,
-        help="OpenDAL write concurrent setting",
     )
     parser.add_argument(
         "--s3fs-block-size",
@@ -507,15 +463,22 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Enable Arrow S3 background writes (default: disabled)",
     )
-    parser.add_argument(
-        "--skip-s3fs",
-        action="store_true",
-        help="Skip fsspec+s3fs comparison",
-    )
 
 
 def _add_write_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--prefix", default="opendalfs-repro")
+    parser.add_argument(
+        "--write-chunk",
+        type=int,
+        default=8 * 1024 * 1024,
+        help="OpenDAL write chunk size in bytes",
+    )
+    parser.add_argument(
+        "--write-concurrent",
+        type=int,
+        default=4,
+        help="OpenDAL write concurrent setting",
+    )
     parser.add_argument(
         "--manifest",
         default="/tmp/opendalfs_bench_manifest.json",
@@ -528,6 +491,18 @@ def _add_read_args(parser: argparse.ArgumentParser) -> None:
         "--manifest",
         default="/tmp/opendalfs_bench_manifest.json",
         help="Path to manifest produced by write runs",
+    )
+    parser.add_argument(
+        "--write-chunk",
+        type=int,
+        default=8 * 1024 * 1024,
+        help="OpenDAL write chunk size in bytes (kept for parity)",
+    )
+    parser.add_argument(
+        "--write-concurrent",
+        type=int,
+        default=4,
+        help="OpenDAL write concurrent setting (kept for parity)",
     )
 
 
@@ -546,9 +521,6 @@ def main() -> None:
     _add_read_args(read_parser)
 
     args = parser.parse_args()
-
-    if args.fsspec_workers is None:
-        args.fsspec_workers = args.workers
 
     config = _load_config(args)
 

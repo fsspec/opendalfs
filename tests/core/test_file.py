@@ -49,25 +49,6 @@ def test_open_write_with_invalid_write_options(memory_fs):
             f.write(b"noop")
 
 
-def test_write_bypasses_fsspec_buffer(monkeypatch, memory_fs):
-    from fsspec.spec import AbstractBufferedFile
-
-    called = False
-    original_write = AbstractBufferedFile.write
-
-    def tracking_write(self, payload):
-        nonlocal called
-        called = True
-        return original_write(self, payload)
-
-    monkeypatch.setattr(AbstractBufferedFile, "write", tracking_write)
-    with memory_fs.open("no-buffer.txt", "wb", block_size=4) as f:
-        f.write(b"a")
-        f.write(b"b")
-
-    assert memory_fs.cat_file("no-buffer.txt") == b"ab"
-    assert not called
-
 def test_open_exclusive_create(any_fs):
     any_fs.pipe_file("exists.txt", b"x")
 
@@ -110,28 +91,6 @@ async def test_open_async_write_chunked():
 
 
 @pytest.mark.asyncio
-async def test_async_write_bypasses_fsspec_buffer(monkeypatch):
-    from fsspec.asyn import AbstractAsyncStreamedFile
-    from opendalfs import OpendalFileSystem
-
-    called = False
-    original_write = AbstractAsyncStreamedFile.write
-
-    async def tracking_write(self, payload):
-        nonlocal called
-        called = True
-        return await original_write(self, payload)
-
-    monkeypatch.setattr(AbstractAsyncStreamedFile, "write", tracking_write)
-
-    fs = OpendalFileSystem(scheme="memory", asynchronous=True, skip_instance_cache=True)
-    async with await fs.open_async("no-buffer.txt", "wb", block_size=4) as f:
-        await f.write(b"a")
-        await f.write(b"b")
-
-    assert await fs._cat_file("no-buffer.txt") == b"ab"
-    assert not called
-
 @pytest.mark.asyncio
 async def test_open_async_exclusive_create():
     from opendalfs import OpendalFileSystem

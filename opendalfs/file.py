@@ -1,466 +1,250 @@
-import logging
+import inspect
+import io
+from errno import ESPIPE
+from typing import Any
 
-from fsspec.asyn import AbstractAsyncStreamedFile
-from fsspec.spec import AbstractBufferedFile
 from opendal import AsyncFile as OpendalAsyncFile
 from opendal import File as OpendalFile
-from opendal.exceptions import NotFound
-from .options import pop_write_options
-
-logger = logging.getLogger("opendalfs")
 
 
-class OpendalBufferedFile(AbstractBufferedFile):
-    """Buffered file implementation for OpenDAL"""
-
-    _opendal_writer: OpendalFile | None
-    _append_via_write: bool
-    _initiated: bool
-    _wrote_data: bool
+class OpendalFileHandle(io.IOBase):
+    """Thin wrapper over OpenDAL File to match fsspec expectations."""
 
     def __init__(
         self,
         fs,
-        path,
-        mode="rb",
-        block_size="default",
-        autocommit=True,
-        cache_type="readahead",
-        cache_options=None,
-        size=None,
-        **kwargs,
-    ):
-        write_options = pop_write_options(
-            kwargs, defaults=getattr(fs, "_write_options", None)
-        )
+        path: str,
+        mode: str,
+        file: OpendalFile,
+        size: int | None,
+    ) -> None:
+        self.fs = fs
+        self.path = path
+        self.mode = mode
+        self._file = file
+        self._size = size
+        self._closed = file.closed
 
-        super().__init__(
-            fs,
-            path,
-            mode=mode,
-            block_size=block_size,
-            autocommit=autocommit,
-            cache_type=cache_type,
-            cache_options=cache_options,
-            size=size,
-            **kwargs,
-        )
+    @property
+    def size(self) -> int | None:
+        return self._size
 
-        self._opendal_writer = None
-        self._append_via_write = False
-        self._initiated = False
-        self._wrote_data = False
-        self._write_options = write_options
+    @property
+    def closed(self) -> bool:  # type: ignore[override]
+        return self._closed
 
-        if mode == "ab":
-            # Match python semantics: append writes start from end-of-file.
-            try:
-                self.loc = self.details["size"]
-            except FileNotFoundError:
-                self.loc = 0
+    def readable(self) -> bool:
+        return "r" in self.mode and not self.closed
 
-    def _fetch_range(self, start: int, end: int):
-        """Download data between start and end"""
-        if start >= end:
-            return b""
+    def writable(self) -> bool:
+        return self.mode in {"wb", "ab", "xb"} and not self.closed
 
-        length = end - start
-        return self.fs.operator.read(self.path, offset=start, size=length)
+    def seekable(self) -> bool:
+        return self.readable()
 
-    def _upload_chunk(self, final: bool = False):
-        """Upload partial chunk of data"""
-        if not self._initiated:
-            raise RuntimeError("Upload has not been initiated")
+    def tell(self) -> int:
+        return self._file.tell()
 
-        self.buffer.seek(0)
-        chunk = self.buffer.read()
+    def seek(self, loc: int, whence: int = 0) -> int:
+        if not self.readable():
+            raise OSError(ESPIPE, "Seek only available in read mode")
+        return self._file.seek(loc, whence)
 
-        if not chunk:
-            if not final:
-                return False
-            if self.mode == "ab" and self._append_via_write:
-                if not self.fs.operator.exists(self.path):
-                    self.fs.operator.write(
-                        self.path, b"", **self._write_options
-                    )
-                return None
-            self._commit_upload()
-            return None
+    def read(self, size: int | None = -1) -> bytes:
+        if not self.readable():
+            raise ValueError("File not in read mode")
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        if size is None or size < 0:
+            return self._file.read()
+        return self._file.read(size)
 
-        if self.mode == "ab" and self._append_via_write:
-            # Let OpenDAL handle append semantics if the backend supports it.
-            self.fs.operator.write(
-                self.path, chunk, append=True, **self._write_options
-            )
-            return None
+    def readinto(self, b) -> int:
+        if not self.readable():
+            raise ValueError("File not in read mode")
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        return self._file.readinto(b)
 
-        if self._opendal_writer is None:
-            self._opendal_writer = self.fs.operator.open(
-                self.path, "wb", **self._write_options
-            )
+    def readline(self, size: int | None = -1) -> bytes:
+        if not self.readable():
+            raise ValueError("File not in read mode")
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        if size is None or size < 0:
+            return self._file.readline()
+        return self._file.readline(size)
 
-        if chunk:
-            self._opendal_writer.write(chunk)
-
-        if final:
-            self._commit_upload()
-        return None
-
-    def _ensure_initiated(self) -> None:
-        if self._initiated:
-            return
-        if self.offset is None:
-            self.offset = 0
-        try:
-            self._initiate_upload()
-        except Exception:
-            self.closed = True
-            raise
-
-    def write(self, data):
+    def write(self, data: bytes | bytearray | memoryview) -> int:
         if not self.writable():
             raise ValueError("File not in write mode")
         if self.closed:
             raise ValueError("I/O operation on closed file.")
-        if self.forced:
-            raise ValueError("This file has been force-flushed, can only close")
-
+        if not isinstance(data, (bytes, bytearray, memoryview)):
+            data = memoryview(data).tobytes()
         if not data:
             return 0
+        written = self._file.write(data)
+        if written is None:
+            written = len(data)
+        if self._size is None:
+            self._size = 0
+        self._size += written
+        return written
 
-        # Writing bypasses fsspec buffer; OpenDAL writer provides buffering.
-        self._ensure_initiated()
-
-        if not isinstance(data, (bytes, bytearray)):
-            data = memoryview(data).tobytes()
-
-        if self.mode == "ab" and self._append_via_write:
-            self.fs.operator.write(self.path, data, append=True, **self._write_options)
-            size = len(data)
-        else:
-            if self._opendal_writer is None:
-                self._opendal_writer = self.fs.operator.open(
-                    self.path, "wb", **self._write_options
-                )
-            self._opendal_writer.write(data)
-            size = len(data)
-
-        self._wrote_data = True
-        self.loc += size
-        if self.offset is None:
-            self.offset = 0
-        self.offset += size
-        return size
-
-    def flush(self, force: bool = False):
+    def flush(self) -> None:
         if self.closed:
             raise ValueError("Flush on closed file")
-        if force and self.forced:
-            raise ValueError("Force flush cannot be called more than once")
-        if force:
-            self.forced = True
+        self._file.flush()
 
-        if self.readable():
-            return
-
-        if not self._initiated:
-            if not force and not self._wrote_data:
-                return
-            self._ensure_initiated()
-
-        if self.mode == "ab" and self._append_via_write:
-            if force and not self._wrote_data:
-                if not self.fs.operator.exists(self.path):
-                    self.fs.operator.write(self.path, b"", **self._write_options)
-            return
-
-        if self._opendal_writer is None:
-            if force:
-                self.fs.operator.write(self.path, b"", **self._write_options)
-            return
-
-        self._opendal_writer.flush()
-        if force:
-            self._opendal_writer.close()
-            self._opendal_writer = None
-
-    def _initiate_upload(self) -> None:
-        """Prepare for uploading"""
-        if self._initiated:
-            return
-
-        if self.mode == "xb" and self.fs.operator.exists(self.path):
-            raise FileExistsError(self.path)
-
-        if self.mode == "ab":
-            cap = self.fs.operator.capability()
-            if getattr(cap, "write_can_append", False):
-                self._append_via_write = True
-                # Align offset with existing size for correct accounting.
-                self.offset = self.loc
-            else:
-                # Fallback: emulate append by rewriting the full object.
-                try:
-                    existing = self.fs.operator.read(self.path)
-                except (FileNotFoundError, NotFound):
-                    existing = b""
-                if existing:
-                    self._opendal_writer = self.fs.operator.open(
-                        self.path, "wb", **self._write_options
-                    )
-                    self._opendal_writer.write(existing)
-                    self.offset = len(existing)
-                    self._wrote_data = True
-
-        self._initiated = True
-
-    def _commit_upload(self) -> None:
-        """Ensure upload is complete"""
-        if self.mode == "ab" and self._append_via_write:
-            return
-
-        if self._opendal_writer is None:
-            # Ensure empty files are created on close.
-            self.fs.operator.write(self.path, b"", **self._write_options)
-            return
-
-        self._opendal_writer.flush()
-        self._opendal_writer.close()
-        self._opendal_writer = None
-
-    def close(self):
-        """Ensure data is written before closing"""
+    def close(self) -> None:
         if self.closed:
             return
-
         try:
-            super().close()
+            self._file.close()
         finally:
-            if self._opendal_writer is not None:
-                try:
-                    self._opendal_writer.close()
-                finally:
-                    self._opendal_writer = None
+            self._closed = True
+            if "r" not in self.mode:
+                self.fs.invalidate_cache(self.path)
+                self.fs.invalidate_cache(self.fs._parent(self.path))
+
+    def commit(self) -> None:
+        self.close()
+
+    def discard(self) -> None:
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
 
 
-class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
-    """Async buffered file implementation for OpenDAL."""
-
-    _opendal_writer: OpendalAsyncFile | None
-    _append_via_write: bool
-    _initiated: bool
-    _exclusive_create: bool
-    _wrote_data: bool
+class OpendalAsyncFileHandle:
+    """Async wrapper over OpenDAL AsyncFile with sync seek/tell semantics."""
 
     def __init__(
         self,
         fs,
-        path,
-        mode="rb",
-        block_size="default",
-        autocommit=True,
-        cache_type="readahead",
-        cache_options=None,
-        size=None,
-        **kwargs,
-    ):
-        self._exclusive_create = mode == "xb"
-        normalized_mode = "wb" if self._exclusive_create else mode
+        path: str,
+        mode: str,
+        file: OpendalAsyncFile,
+        size: int | None,
+        loc: int = 0,
+    ) -> None:
+        self.fs = fs
+        self.path = path
+        self.mode = mode
+        self._file = file
+        self._size = size
+        self._loc = loc
+        self._closed = False
+        self._pending_seek: Any | None = None
 
-        write_options = pop_write_options(
-            kwargs, defaults=getattr(fs, "_write_options", None)
-        )
+    @property
+    def size(self) -> int | None:
+        return self._size
 
-        super().__init__(
-            fs,
-            path,
-            mode=normalized_mode,
-            block_size=block_size,
-            autocommit=autocommit,
-            cache_type=cache_type,
-            cache_options=cache_options,
-            size=size,
-            **kwargs,
-        )
+    @property
+    def closed(self) -> bool:
+        return self._closed
 
-        self._opendal_writer = None
-        self._append_via_write = False
-        self._initiated = False
-        self._wrote_data = False
-        self._write_options = write_options
+    def readable(self) -> bool:
+        return "r" in self.mode and not self.closed
 
-    async def _fetch_range(self, start: int, end: int):
-        if start >= end:
-            return b""
+    def writable(self) -> bool:
+        return self.mode in {"wb", "ab", "xb"} and not self.closed
 
-        length = end - start
-        return await self.fs.async_fs.read(self.path, offset=start, size=length)
+    def seekable(self) -> bool:
+        return self.readable()
 
-    async def _upload_chunk(self, final: bool = False):
-        if not self._initiated:
-            raise RuntimeError("Upload has not been initiated")
+    def tell(self) -> int:
+        return self._loc
 
-        self.buffer.seek(0)
-        chunk = self.buffer.read()
+    def seek(self, loc: int, whence: int = 0) -> int:
+        if not self.readable():
+            raise OSError(ESPIPE, "Seek only available in read mode")
+        if whence == 0:
+            nloc = int(loc)
+        elif whence == 1:
+            nloc = self._loc + int(loc)
+        elif whence == 2:
+            if self._size is None:
+                raise ValueError("Cannot seek from end without known size")
+            nloc = self._size + int(loc)
+        else:
+            raise ValueError(f"invalid whence ({whence}, should be 0, 1 or 2)")
+        if nloc < 0:
+            raise ValueError("Seek before start of file")
+        self._loc = nloc
+        self._pending_seek = self._file.seek(nloc, 0)
+        return self._loc
 
-        if not chunk:
-            if not final:
-                return False
-            if self.mode == "ab" and self._append_via_write:
-                if not await self.fs.async_fs.exists(self.path):
-                    await self.fs.async_fs.write(
-                        self.path, b"", **self._write_options
-                    )
-                return None
-            await self._commit_upload()
-            return None
+    async def _maybe_await(self, value):
+        if inspect.isawaitable(value):
+            return await value
+        return value
 
-        if self.mode == "ab" and self._append_via_write:
-            await self.fs.async_fs.write(
-                self.path, chunk, append=True, **self._write_options
-            )
-            return None
-
-        if self._opendal_writer is None:
-            self._opendal_writer = await self.fs.async_fs.open(
-                self.path, "wb", **self._write_options
-            )
-
-        await self._opendal_writer.write(chunk)
-
-        if final:
-            await self._commit_upload()
-        return None
-
-    async def _ensure_initiated(self) -> None:
-        if self._initiated:
+    async def _drain_pending_seek(self) -> None:
+        if self._pending_seek is None:
             return
-        if self.offset is None:
-            self.offset = 0
-        try:
-            await self._initiate_upload()
-        except Exception:
-            self.closed = True
-            raise
+        await self._maybe_await(self._pending_seek)
+        self._pending_seek = None
 
-    async def write(self, data):
+    async def read(self, size: int | None = -1) -> bytes:
+        if not self.readable():
+            raise ValueError("File not in read mode")
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        if size is None or size < 0:
+            await self._drain_pending_seek()
+            data = await self._maybe_await(self._file.read())
+        else:
+            await self._drain_pending_seek()
+            data = await self._maybe_await(self._file.read(size))
+        self._loc += len(data)
+        return data
+
+    async def write(self, data: bytes | bytearray | memoryview) -> int:
         if not self.writable():
             raise ValueError("File not in write mode")
         if self.closed:
             raise ValueError("I/O operation on closed file.")
-        if self.forced:
-            raise ValueError("This file has been force-flushed, can only close")
-
+        if not isinstance(data, (bytes, bytearray, memoryview)):
+            data = memoryview(data).tobytes()
         if not data:
             return 0
+        await self._drain_pending_seek()
+        written = await self._maybe_await(self._file.write(data))
+        if written is None:
+            written = len(data)
+        self._loc += written
+        if self._size is None:
+            self._size = 0
+        self._size = max(self._size, self._loc)
+        return written
 
-        await self._ensure_initiated()
-
-        if not isinstance(data, (bytes, bytearray)):
-            data = memoryview(data).tobytes()
-
-        if self.mode == "ab" and self._append_via_write:
-            await self.fs.async_fs.write(
-                self.path, data, append=True, **self._write_options
-            )
-            size = len(data)
-        else:
-            if self._opendal_writer is None:
-                self._opendal_writer = await self.fs.async_fs.open(
-                    self.path, "wb", **self._write_options
-                )
-            await self._opendal_writer.write(data)
-            size = len(data)
-
-        self._wrote_data = True
-        self.loc += size
-        if self.offset is None:
-            self.offset = 0
-        self.offset += size
-        return size
-
-    async def flush(self, force: bool = False):
+    async def flush(self) -> None:
         if self.closed:
             raise ValueError("Flush on closed file")
-        if force and self.forced:
-            raise ValueError("Force flush cannot be called more than once")
-        if force:
-            self.forced = True
+        if hasattr(self._file, "flush"):
+            await self._maybe_await(self._file.flush())
 
-        if self.mode not in {"wb", "ab"}:
-            return
-
-        if not self._initiated:
-            if not force and not self._wrote_data:
-                return
-            await self._ensure_initiated()
-
-        if self.mode == "ab" and self._append_via_write:
-            if force and not self._wrote_data:
-                if not await self.fs.async_fs.exists(self.path):
-                    await self.fs.async_fs.write(
-                        self.path, b"", **self._write_options
-                    )
-            return
-
-        if self._opendal_writer is None:
-            if force:
-                await self.fs.async_fs.write(self.path, b"", **self._write_options)
-            return
-
-        if force:
-            await self._opendal_writer.close()
-            self._opendal_writer = None
-
-    async def _initiate_upload(self) -> None:
-        if self._initiated:
-            return
-
-        if self._exclusive_create and await self.fs.async_fs.exists(self.path):
-            raise FileExistsError(self.path)
-
-        if self.mode == "ab":
-            cap = self.fs.async_fs.capability()
-            if getattr(cap, "write_can_append", False):
-                self._append_via_write = True
-                self.offset = self.loc
-            else:
-                try:
-                    existing = await self.fs.async_fs.read(self.path)
-                except (FileNotFoundError, NotFound):
-                    existing = b""
-                if existing:
-                    self._opendal_writer = await self.fs.async_fs.open(
-                        self.path, "wb", **self._write_options
-                    )
-                    await self._opendal_writer.write(existing)
-                    self.offset = len(existing)
-                    self._wrote_data = True
-
-        self._initiated = True
-
-    async def _commit_upload(self) -> None:
-        if self.mode == "ab" and self._append_via_write:
-            return
-
-        if self._opendal_writer is None:
-            await self.fs.async_fs.write(self.path, b"", **self._write_options)
-            return
-
-        try:
-            await self._opendal_writer.close()
-        finally:
-            self._opendal_writer = None
-
-    async def close(self):
+    async def close(self) -> None:
         if self.closed:
             return
-
         try:
-            await super().close()
+            await self._drain_pending_seek()
+            await self._maybe_await(self._file.close())
         finally:
-            if self._opendal_writer is not None:
-                try:
-                    await self._opendal_writer.close()
-                finally:
-                    self._opendal_writer = None
+            self._closed = True
+            if "r" not in self.mode:
+                self.fs.invalidate_cache(self.path)
+                self.fs.invalidate_cache(self.fs._parent(self.path))
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
