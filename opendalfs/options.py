@@ -48,7 +48,7 @@ class WriteOptions:
         return WriteOptions(chunk=chunk, concurrent=concurrent, extra=extra)
 
 
-def _ensure_write_options(
+def ensure_write_options(
     value: WriteOptions | Mapping[str, Any] | None,
 ) -> WriteOptions | None:
     if value is None:
@@ -65,7 +65,7 @@ def pop_write_options(
     *,
     defaults: WriteOptions | None = None,
 ) -> dict[str, Any]:
-    override = _ensure_write_options(kwargs.pop("write_options", None))
+    override = ensure_write_options(kwargs.pop("write_options", None))
     if defaults is None:
         merged = override or WriteOptions()
     else:

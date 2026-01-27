@@ -4,13 +4,14 @@ from collections.abc import Mapping
 from glob import has_magic
 from typing import Any
 
+import logging
 from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import trailing_sep
-import logging
 from opendal import AsyncOperator, Operator
-from .file import OpendalAsyncFileHandle, OpendalFileHandle
-from .options import WriteOptions, pop_write_options
 from opendal.exceptions import NotFound, Unsupported
+
+from .file import OpendalAsyncFileHandle, OpendalFileHandle
+from .options import WriteOptions, ensure_write_options, pop_write_options
 
 logger = logging.getLogger("opendalfs")
 
@@ -51,11 +52,7 @@ class OpendalFileSystem(AsyncFileSystem):
             if write_options is not None:
                 raise TypeError("write_options specified multiple times")
             write_options = kwargs.pop("write_options")
-        if write_options is not None and not isinstance(write_options, WriteOptions):
-            if isinstance(write_options, Mapping):
-                write_options = WriteOptions.from_mapping(write_options)
-            else:
-                raise TypeError("write_options must be WriteOptions or a mapping")
+        write_options = ensure_write_options(write_options)
         self._write_options = write_options
 
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
@@ -71,11 +68,55 @@ class OpendalFileSystem(AsyncFileSystem):
             return "file"
         return "other"
 
+    def _clean_path(self, path: str) -> str:
+        stripped = self._strip_protocol(path)
+        if (
+            isinstance(stripped, str)
+            and path.endswith("/")
+            and stripped
+            and not stripped.endswith("/")
+        ):
+            return stripped + "/"
+        return stripped
+
+    def _as_dir_path(self, path: str) -> str:
+        cleaned = self._clean_path(path)
+        if cleaned and not cleaned.endswith("/"):
+            return cleaned + "/"
+        return cleaned
+
+    def _stat_sync(self, path: str):
+        try:
+            return self.operator.stat(path)
+        except NotFound as err:
+            raise FileNotFoundError(path) from err
+
+    async def _stat_async(self, path: str):
+        try:
+            return await self.async_fs.stat(path)
+        except NotFound as err:
+            raise FileNotFoundError(path) from err
+
+    def _stat_size_sync(self, path: str) -> int:
+        return int(self._stat_sync(path).content_length)
+
+    async def _stat_size_async(self, path: str) -> int:
+        info = await self._stat_async(path)
+        return int(info.content_length)
+
+    def _ensure_not_exists_sync(self, path: str) -> None:
+        if self.operator.exists(path):
+            raise FileExistsError(path)
+
+    async def _ensure_not_exists_async(self, path: str) -> None:
+        if await self.async_fs.exists(path):
+            raise FileExistsError(path)
+
     # Async implementations using Rust's async methods directly
     #
     async def _ls(self, path: str, detail=True, **kwargs):
         """List contents of path"""
-        path = self._strip_protocol(path)
+        path = self._clean_path(path)
         cache_path = path.rstrip("/")
         refresh = bool(kwargs.pop("refresh", False))
 
@@ -108,11 +149,9 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _info(self, path: str, **kwargs):
         """Get path info"""
-        logger.debug(f"Getting info for: {path}")
-        try:
-            info = await self.async_fs.stat(path)
-        except NotFound as err:
-            raise FileNotFoundError(path) from err
+        path = self._clean_path(path)
+        logger.debug("Getting info for: %s", path)
+        info = await self._stat_async(path)
         return {
             "name": path,
             "size": info.content_length,
@@ -121,11 +160,23 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _mkdir(self, path: str, create_parents: bool = True, **kwargs) -> None:
         """Create directory"""
+        path = self._as_dir_path(path)
+        base = path.rstrip("/")
+        if not create_parents:
+            parent = self._parent(base)
+            if parent:
+                parent_dir = parent if parent.endswith("/") else parent + "/"
+                parent_exists = await self.async_fs.exists(parent) or await self.async_fs.exists(
+                    parent_dir
+                )
+                if not parent_exists:
+                    raise FileNotFoundError(parent)
         await self.async_fs.create_dir(path)
-        self.invalidate_cache(self._parent(path.rstrip("/")))
+        self.invalidate_cache(self._parent(base))
 
     async def _rmdir(self, path: str, recursive: bool = False) -> None:
         """Remove directory"""
+        path = self._as_dir_path(path)
         if recursive:
             await self.async_fs.remove_all(path)
         else:
@@ -136,11 +187,14 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _rm_file(self, path: str, **kwargs) -> None:
         """Remove file"""
+        path = self._clean_path(path)
         await self.async_fs.delete(path)
         self.invalidate_cache(self._parent(path))
 
     async def _cp_file(self, path1: str, path2: str, **kwargs) -> None:
         """Copy file from path1 to path2."""
+        path1 = self._clean_path(path1)
+        path2 = self._clean_path(path2)
         try:
             await self.async_fs.copy(path1, path2)
         except Unsupported:
@@ -152,16 +206,13 @@ class OpendalFileSystem(AsyncFileSystem):
         self, path: str, start: int | None = None, end: int | None = None, **kwargs
     ):
         """Get file content as bytes (async implementation)."""
+        path = self._clean_path(path)
         if start is None and end is None:
             return await self.async_fs.read(path)
 
         size = None
         if (start is not None and start < 0) or (end is not None and end < 0):
-            try:
-                info = await self.async_fs.stat(path)
-            except NotFound as err:
-                raise FileNotFoundError(path) from err
-            size = info.content_length
+            size = await self._stat_size_async(path)
 
         if start is None:
             start = 0
@@ -188,6 +239,7 @@ class OpendalFileSystem(AsyncFileSystem):
         self, path: str, value: bytes, mode: str = "overwrite", **kwargs
     ) -> None:
         """Write bytes into file (async implementation)."""
+        path = self._clean_path(path)
         if mode == "create" and await self._exists(path):
             raise FileExistsError(path)
         write_opts = pop_write_options(kwargs, defaults=self._write_options)
@@ -202,6 +254,7 @@ class OpendalFileSystem(AsyncFileSystem):
         self, path: str, value: bytes, mode: str = "overwrite", **kwargs
     ) -> None:
         """Write bytes into file (sync implementation)."""
+        path = self._clean_path(path)
         if mode == "create" and self.exists(path):
             raise FileExistsError(path)
         write_opts = pop_write_options(kwargs, defaults=self._write_options)
@@ -218,7 +271,80 @@ class OpendalFileSystem(AsyncFileSystem):
     # Higher-level async operations built on core methods
     async def _exists(self, path: str, **kwargs):
         """Check path existence"""
+        path = self._clean_path(path)
         return await self.async_fs.exists(path)
+
+    @staticmethod
+    def _apply_block_size_to_chunk(
+        block_size: Any, write_opts: dict[str, Any]
+    ) -> dict[str, Any]:
+        if block_size in (None, "default") or "chunk" in write_opts:
+            return write_opts
+        try:
+            block_size_int = int(block_size)
+        except (TypeError, ValueError):
+            return write_opts
+        if block_size_int > 0:
+            write_opts["chunk"] = block_size_int
+        return write_opts
+
+    def _collect_write_opts(
+        self, mode: str, block_size: Any, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        if mode not in {"wb", "ab", "xb"}:
+            return {}
+        write_opts = pop_write_options(kwargs, defaults=self._write_options)
+        return self._apply_block_size_to_chunk(block_size, write_opts)
+
+    def _open_append_sync(
+        self, path: str, mode: str, write_opts: dict[str, Any]
+    ) -> OpendalFileHandle:
+        path = self._clean_path(path)
+        cap = self.operator.capability()
+        if getattr(cap, "write_can_append", False):
+            try:
+                size = self.operator.stat(path).content_length
+            except NotFound:
+                size = 0
+            file = self.operator.open(path, "ab", **write_opts)
+            return OpendalFileHandle(self, path, mode, file, size)
+
+        try:
+            existing = self.operator.read(path)
+        except NotFound:
+            existing = b""
+        file = self.operator.open(path, "wb", **write_opts)
+        if existing:
+            file.write(existing)
+        size = len(existing)
+        return OpendalFileHandle(self, path, mode, file, size)
+
+    async def _open_append_async(
+        self, path: str, mode: str, write_opts: dict[str, Any]
+    ) -> OpendalAsyncFileHandle:
+        path = self._clean_path(path)
+        cap = self.async_fs.capability()
+        if getattr(cap, "write_can_append", False):
+            try:
+                info = await self.async_fs.stat(path)
+                size = info.content_length
+                loc = size
+            except NotFound:
+                size = 0
+                loc = 0
+            file = await self.async_fs.open(path, "ab", **write_opts)
+            return OpendalAsyncFileHandle(self, path, mode, file, size, loc=loc)
+
+        try:
+            existing = await self.async_fs.read(path)
+        except NotFound:
+            existing = b""
+        file = await self.async_fs.open(path, "wb", **write_opts)
+        if existing:
+            await file.write(existing)
+        size = len(existing)
+        loc = size
+        return OpendalAsyncFileHandle(self, path, mode, file, size, loc=loc)
 
     def _open(
         self,
@@ -230,44 +356,20 @@ class OpendalFileSystem(AsyncFileSystem):
         **kwargs: Any,
     ) -> OpendalFileHandle:
         """Open a file for reading or writing via native OpenDAL file."""
-        _ = block_size, autocommit, cache_options
-        path = self._strip_protocol(path)
-        write_opts: dict[str, Any] = {}
-        if mode in {"wb", "ab", "xb"}:
-            write_opts = pop_write_options(kwargs, defaults=self._write_options)
+        _ = autocommit, cache_options
+        path = self._clean_path(path)
+        write_opts = self._collect_write_opts(mode, block_size, kwargs)
 
         if mode == "xb":
-            if self.operator.exists(path):
-                raise FileExistsError(path)
+            self._ensure_not_exists_sync(path)
             mode = "wb"
 
         size = None
         if mode == "rb":
-            try:
-                info = self.operator.stat(path)
-            except NotFound as err:
-                raise FileNotFoundError(path) from err
-            size = info.content_length
+            size = self._stat_size_sync(path)
 
         if mode == "ab":
-            cap = self.operator.capability()
-            if getattr(cap, "write_can_append", False):
-                try:
-                    size = self.operator.stat(path).content_length
-                except NotFound:
-                    size = 0
-                file = self.operator.open(path, "ab", **write_opts)
-                return OpendalFileHandle(self, path, mode, file, size)
-
-            try:
-                existing = self.operator.read(path)
-            except NotFound:
-                existing = b""
-            file = self.operator.open(path, "wb", **write_opts)
-            if existing:
-                file.write(existing)
-            size = len(existing)
-            return OpendalFileHandle(self, path, mode, file, size)
+            return self._open_append_sync(path, mode, write_opts)
 
         file = self.operator.open(path, mode, **write_opts)
         return OpendalFileHandle(self, path, mode, file, size)
@@ -276,61 +378,30 @@ class OpendalFileSystem(AsyncFileSystem):
         if "b" not in mode or kwargs.get("compression"):
             raise ValueError
 
-        path = self._strip_protocol(path)
-        write_opts: dict[str, Any] = {}
-        if mode in {"wb", "ab", "xb"}:
-            write_opts = pop_write_options(kwargs, defaults=self._write_options)
+        path = self._clean_path(path)
+        block_size = kwargs.pop("block_size", None)
+        write_opts = self._collect_write_opts(mode, block_size, kwargs)
 
         if mode == "xb":
-            if await self.async_fs.exists(path):
-                raise FileExistsError(path)
+            await self._ensure_not_exists_async(path)
             mode = "wb"
 
         size = None
         loc = 0
         if mode == "rb":
-            try:
-                info = await self.async_fs.stat(path)
-            except NotFound as err:
-                raise FileNotFoundError(path) from err
-            else:
-                size = info.content_length
+            size = await self._stat_size_async(path)
 
         if mode == "ab":
-            cap = self.async_fs.capability()
-            if getattr(cap, "write_can_append", False):
-                try:
-                    info = await self.async_fs.stat(path)
-                    size = info.content_length
-                    loc = size
-                except NotFound:
-                    size = 0
-                    loc = 0
-                file = await self.async_fs.open(path, "ab", **write_opts)
-                return OpendalAsyncFileHandle(self, path, mode, file, size, loc=loc)
-
-            try:
-                existing = await self.async_fs.read(path)
-            except NotFound:
-                existing = b""
-            file = await self.async_fs.open(path, "wb", **write_opts)
-            if existing:
-                await file.write(existing)
-            size = len(existing)
-            loc = size
-            return OpendalAsyncFileHandle(self, path, mode, file, size, loc=loc)
+            return await self._open_append_async(path, mode, write_opts)
 
         file = await self.async_fs.open(path, mode, **write_opts)
         return OpendalAsyncFileHandle(self, path, mode, file, size, loc=loc)
 
     async def _modified(self, path: str):
         """Get modified time (async version)"""
-        try:
-            info = await self.async_fs.stat(path)
-        except NotFound as err:
-            raise FileNotFoundError(path) from err
-        else:
-            return info.last_modified
+        path = self._clean_path(path)
+        info = await self._stat_async(path)
+        return info.last_modified
 
     def mv(
         self,
@@ -347,8 +418,8 @@ class OpendalFileSystem(AsyncFileSystem):
             and maxdepth is None
             and not has_magic(path1)
         ):
-            src = self._strip_protocol(path1)
-            dst = self._strip_protocol(path2)
+            src = self._clean_path(path1)
+            dst = self._clean_path(path2)
             if trailing_sep(dst) or self.isdir(dst):
                 base = src.rstrip("/").split("/")[-1]
                 dst = dst.rstrip("/") + "/" + base
@@ -369,7 +440,7 @@ class OpendalFileSystem(AsyncFileSystem):
             super().invalidate_cache(path)
             return
 
-        stripped = self._strip_protocol(path).rstrip("/")
+        stripped = self._clean_path(path).rstrip("/")
         self.dircache.pop(stripped, None)
         prefix = stripped + "/"
         for key in list(self.dircache):

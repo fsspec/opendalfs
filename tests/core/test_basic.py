@@ -76,6 +76,23 @@ async def test_ls_and_info_fsspec_shape(memory_fs):
     assert by_name["a/c/"]["type"] == "directory"
 
 
+@pytest.mark.asyncio
+async def test_mkdir_without_parents_is_explicit(memory_fs):
+    with pytest.raises(FileNotFoundError):
+        await memory_fs._mkdir("no-parent/child", create_parents=False)
+
+    await memory_fs._mkdir("has-parent")
+    await memory_fs._mkdir("has-parent/child", create_parents=False)
+
+    info = await memory_fs._info("has-parent/child/")
+    assert info["type"] == "directory"
+
+
+def test_clean_path_preserves_trailing_sep(memory_fs):
+    cleaned = memory_fs._clean_path("opendal+s3://bucket/a/")
+    assert cleaned.endswith("/")
+
+
 def test_copy_and_mv_sync(memory_fs):
     content = b"hello"
     memory_fs.pipe_file("src.txt", content)
