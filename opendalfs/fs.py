@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from glob import has_magic
 from typing import Any
 
@@ -12,6 +13,7 @@ from .options import WriteOptions, pop_write_options
 from opendal.exceptions import NotFound, Unsupported
 
 logger = logging.getLogger("opendalfs")
+
 
 class OpendalFileSystem(AsyncFileSystem):
     """OpenDAL implementation of fsspec AsyncFileSystem.
@@ -50,7 +52,10 @@ class OpendalFileSystem(AsyncFileSystem):
                 raise TypeError("write_options specified multiple times")
             write_options = kwargs.pop("write_options")
         if write_options is not None and not isinstance(write_options, WriteOptions):
-            raise TypeError("write_options must be WriteOptions")
+            if isinstance(write_options, Mapping):
+                write_options = WriteOptions.from_mapping(write_options)
+            else:
+                raise TypeError("write_options must be WriteOptions or a mapping")
         self._write_options = write_options
 
         super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
@@ -143,7 +148,9 @@ class OpendalFileSystem(AsyncFileSystem):
             await self.async_fs.write(path2, data)
         self.invalidate_cache(self._parent(path2.rstrip("/")))
 
-    async def _cat_file(self, path: str, start: int | None = None, end: int | None = None, **kwargs):
+    async def _cat_file(
+        self, path: str, start: int | None = None, end: int | None = None, **kwargs
+    ):
         """Get file content as bytes (async implementation)."""
         if start is None and end is None:
             return await self.async_fs.read(path)
@@ -177,7 +184,9 @@ class OpendalFileSystem(AsyncFileSystem):
             return b""
         return await self.async_fs.read(path, offset=start, size=length)
 
-    async def _pipe_file(self, path: str, value: bytes, mode: str = "overwrite", **kwargs) -> None:
+    async def _pipe_file(
+        self, path: str, value: bytes, mode: str = "overwrite", **kwargs
+    ) -> None:
         """Write bytes into file (async implementation)."""
         if mode == "create" and await self._exists(path):
             raise FileExistsError(path)
@@ -189,7 +198,9 @@ class OpendalFileSystem(AsyncFileSystem):
             await file.close()
         self.invalidate_cache(self._parent(path.rstrip("/")))
 
-    def pipe_file(self, path: str, value: bytes, mode: str = "overwrite", **kwargs) -> None:
+    def pipe_file(
+        self, path: str, value: bytes, mode: str = "overwrite", **kwargs
+    ) -> None:
         """Write bytes into file (sync implementation)."""
         if mode == "create" and self.exists(path):
             raise FileExistsError(path)
@@ -321,7 +332,14 @@ class OpendalFileSystem(AsyncFileSystem):
         else:
             return info.last_modified
 
-    def mv(self, path1, path2, recursive: bool = False, maxdepth: int | None = None, **kwargs):
+    def mv(
+        self,
+        path1,
+        path2,
+        recursive: bool = False,
+        maxdepth: int | None = None,
+        **kwargs,
+    ):
         if (
             isinstance(path1, str)
             and isinstance(path2, str)
@@ -341,7 +359,9 @@ class OpendalFileSystem(AsyncFileSystem):
                 return None
             except Unsupported:
                 pass
-        return super().mv(path1, path2, recursive=recursive, maxdepth=maxdepth, **kwargs)
+        return super().mv(
+            path1, path2, recursive=recursive, maxdepth=maxdepth, **kwargs
+        )
 
     def invalidate_cache(self, path: str | None = None):
         if path is None:

@@ -23,6 +23,19 @@ class WriteOptions:
             opts["concurrent"] = self.concurrent
         return opts
 
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "WriteOptions":
+        if not isinstance(value, Mapping):
+            raise TypeError("write_options must be a mapping")
+        raw = dict(value)
+        chunk = raw.pop("chunk", None)
+        concurrent = raw.pop("concurrent", None)
+        if chunk is not None and not isinstance(chunk, int):
+            raise TypeError("write_options.chunk must be an int")
+        if concurrent is not None and not isinstance(concurrent, int):
+            raise TypeError("write_options.concurrent must be an int")
+        return cls(chunk=chunk, concurrent=concurrent, extra=raw)
+
     def merge(self, override: "WriteOptions | None") -> "WriteOptions":
         if override is None:
             return self
@@ -30,18 +43,20 @@ class WriteOptions:
         extra.update(override.extra)
         chunk = override.chunk if override.chunk is not None else self.chunk
         concurrent = (
-            override.concurrent
-            if override.concurrent is not None
-            else self.concurrent
+            override.concurrent if override.concurrent is not None else self.concurrent
         )
         return WriteOptions(chunk=chunk, concurrent=concurrent, extra=extra)
 
 
-def _ensure_write_options(value: WriteOptions | None) -> WriteOptions | None:
+def _ensure_write_options(
+    value: WriteOptions | Mapping[str, Any] | None,
+) -> WriteOptions | None:
     if value is None:
         return None
     if not isinstance(value, WriteOptions):
-        raise TypeError("write_options must be WriteOptions")
+        if isinstance(value, Mapping):
+            return WriteOptions.from_mapping(value)
+        raise TypeError("write_options must be WriteOptions or a mapping")
     return value
 
 

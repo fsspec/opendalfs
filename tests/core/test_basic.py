@@ -26,6 +26,16 @@ def test_pipe_file_with_write_options(memory_fs):
     assert memory_fs.cat_file("pipe-write.txt") == data
 
 
+def test_pipe_file_with_mapping_write_options(memory_fs):
+    data = b"hello-mapping"
+    memory_fs.pipe_file(
+        "pipe-write-map.txt",
+        data,
+        write_options={"chunk": 4, "concurrent": 2, "content_type": "text/plain"},
+    )
+    assert memory_fs.cat_file("pipe-write-map.txt") == data
+
+
 def test_cat_file_ranges(any_fs):
     data = b"0123456789"
     any_fs.pipe_file("range.txt", data)

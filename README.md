@@ -69,6 +69,7 @@ Write and read are separate commands; the read phase reuses the manifest produce
 
 Configure MinIO access via environment variables:
 `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`, `OPENDAL_S3_ACCESS_KEY_ID`, `OPENDAL_S3_SECRET_ACCESS_KEY`.
+Ensure the bucket already exists; the benchmark will not create it.
 
 Download the official MinIO binary and start it locally:
 
@@ -83,30 +84,32 @@ chmod +x ./minio
 ```bash
 uv sync --extra bench
 uv run python bench/bench_read_write.py write \
-  --sizes 16,32,64 --files 4 --workers 4 --fsspec-workers 4 \
-  --stream-buffer-size 0 --fsspec-cache-type none --s3fs-cache-type none \
-  --s3fs-max-concurrency 4 --write-chunk 8388608 --write-concurrent 4 \
+  --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none \
+  --io-chunk 8388608 --io-concurrency 4 \
   --manifest /tmp/opendalfs_bench_manifest.json
 uv run python bench/bench_read_write.py read \
-  --sizes 16,32,64 --files 4 --workers 4 --fsspec-workers 4 \
-  --stream-buffer-size 0 --fsspec-cache-type none --s3fs-cache-type none \
-  --s3fs-max-concurrency 4 --write-chunk 8388608 --write-concurrent 4 \
+  --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none \
+  --io-chunk 8388608 --io-concurrency 4 \
   --manifest /tmp/opendalfs_bench_manifest.json
 ```
+
+For cold-read comparisons, prefer `--rounds 1 --warmup-rounds 0`.
+When using multiple rounds, the read phase will likely include warmed caches.
 
 ### Profiling
 
 ```bash
 uv tool install py-spy
 uv run python bench/bench_read_write.py write \
-  --sizes 16,32,64 --files 4 --workers 4 --fsspec-workers 4 \
-  --stream-buffer-size 0 --fsspec-cache-type none --s3fs-cache-type none \
-  --s3fs-max-concurrency 4 --write-chunk 8388608 --write-concurrent 4 \
+  --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none \
+  --io-chunk 8388608 --io-concurrency 4 \
   --manifest /tmp/opendalfs_bench_manifest.json
 uv tool run py-spy record -o bench.svg -- \
-  .venv/bin/python bench/bench_read_write.py read --sizes 16,32,64 --files 4 --workers 4 --fsspec-workers 4 \
-  --stream-buffer-size 0 --fsspec-cache-type none --s3fs-cache-type none \
-  --s3fs-max-concurrency 4 --write-chunk 8388608 --write-concurrent 4 \
+  .venv/bin/python bench/bench_read_write.py read --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none --io-chunk 8388608 --io-concurrency 4 \
   --manifest /tmp/opendalfs_bench_manifest.json
 ```
 

@@ -39,12 +39,24 @@ def test_open_write_with_options(memory_fs):
     assert memory_fs.cat_file("opt-write.txt") == data
 
 
+def test_open_write_with_mapping_write_options(memory_fs):
+    data = b"hello-mapping"
+    with memory_fs.open(
+        "opt-write-map.txt",
+        "wb",
+        write_options={"chunk": 4, "concurrent": 2, "content_type": "text/plain"},
+    ) as f:
+        f.write(data)
+
+    assert memory_fs.cat_file("opt-write-map.txt") == data
+
+
 def test_open_write_with_invalid_write_options(memory_fs):
     with pytest.raises(TypeError):
         with memory_fs.open(
-            "opt-write-map.txt",
+            "opt-write-invalid.txt",
             "wb",
-            write_options={"chunk": 4, "concurrent": 2},
+            write_options={"chunk": "4"},
         ) as f:
             f.write(b"noop")
 
@@ -90,7 +102,6 @@ async def test_open_async_write_chunked():
     assert await fs._cat_file("chunked.txt") == b"abcdefgh"
 
 
-@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_open_async_exclusive_create():
     from opendalfs import OpendalFileSystem
