@@ -3,6 +3,7 @@
 import logging
 
 import pytest
+from opendalfs import WriteOptions
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,26 @@ def test_write_read(s3_fs):
         content = b"test content"
         fs.pipe_file("test.txt", content)
         assert fs.cat_file("test.txt") == content
+
+
+def test_pipe_file_with_write_options(memory_fs):
+    data = b"hello-world"
+    memory_fs.pipe_file(
+        "pipe-write.txt",
+        data,
+        write_options=WriteOptions(chunk=4, concurrent=2),
+    )
+    assert memory_fs.cat_file("pipe-write.txt") == data
+
+
+def test_pipe_file_with_mapping_write_options(memory_fs):
+    data = b"hello-mapping"
+    memory_fs.pipe_file(
+        "pipe-write-map.txt",
+        data,
+        write_options={"chunk": 4, "concurrent": 2, "content_type": "text/plain"},
+    )
+    assert memory_fs.cat_file("pipe-write-map.txt") == data
 
 
 def test_cat_file_ranges(any_fs):
@@ -53,6 +74,23 @@ async def test_ls_and_info_fsspec_shape(memory_fs):
     assert by_name["a/b.txt"]["type"] == "file"
     assert by_name["a/c/"]["size"] == 0
     assert by_name["a/c/"]["type"] == "directory"
+
+
+@pytest.mark.asyncio
+async def test_mkdir_without_parents_is_explicit(memory_fs):
+    with pytest.raises(FileNotFoundError):
+        await memory_fs._mkdir("no-parent/child", create_parents=False)
+
+    await memory_fs._mkdir("has-parent")
+    await memory_fs._mkdir("has-parent/child", create_parents=False)
+
+    info = await memory_fs._info("has-parent/child/")
+    assert info["type"] == "directory"
+
+
+def test_clean_path_preserves_trailing_sep(memory_fs):
+    cleaned = memory_fs._clean_path("opendal+s3://bucket/a/")
+    assert cleaned.endswith("/")
 
 
 def test_copy_and_mv_sync(memory_fs):

@@ -62,31 +62,58 @@ For development setup and guidelines, see our [Contributing Guide](CONTRIBUTING.
 
 ## Benchmarks
 
-The benchmark script compares Arrow direct, opendalfs (fsspec), and s3fs (fsspec) on MinIO.
+The benchmark scripts compare Arrow direct, opendalfs (fsspec), and s3fs (fsspec) on MinIO.
+Write and read are separate commands; the read phase reuses the manifest produced by the write phase.
+
+### MinIO Setup
+
+Configure MinIO access via environment variables:
+`OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`, `OPENDAL_S3_ACCESS_KEY_ID`, `OPENDAL_S3_SECRET_ACCESS_KEY`.
+Ensure the bucket already exists; the benchmark will not create it.
+
+Download the official MinIO binary and start it locally:
 
 ```bash
-uv sync --extra bench
-uv run python bench/bench_read_write.py --sizes 16,32,64 --files 4 --workers 4
-```
-
-Configure MinIO access via `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`,
-`OPENDAL_S3_ACCESS_KEY_ID`, and `OPENDAL_S3_SECRET_ACCESS_KEY`.
-
-You can run MinIO locally with the official binary, for example:
-
-```bash
+curl -Lo ./minio https://dl.min.io/server/minio/release/linux-amd64/minio
+chmod +x ./minio
 ./minio server ./minio-data --console-address ":9001"
 ```
 
-For profiling, you can install a tool with `uv` (for example `py-spy`) and run:
+### Quick Start
+
+```bash
+uv sync --extra bench
+uv run python bench/bench_read_write.py write \
+  --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none \
+  --io-chunk 8388608 --io-concurrency 4 \
+  --manifest /tmp/opendalfs_bench_manifest.json
+uv run python bench/bench_read_write.py read \
+  --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none \
+  --io-chunk 8388608 --io-concurrency 4 \
+  --manifest /tmp/opendalfs_bench_manifest.json
+```
+
+For cold-read comparisons, prefer `--rounds 1 --warmup-rounds 0`.
+When using multiple rounds, the read phase will likely include warmed caches.
+
+### Profiling
 
 ```bash
 uv tool install py-spy
-uv tool run py-spy record -o bench.svg -- python bench/bench_read_write.py --sizes 16,32,64 --files 4 --workers 4
+uv run python bench/bench_read_write.py write \
+  --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none \
+  --io-chunk 8388608 --io-concurrency 4 \
+  --manifest /tmp/opendalfs_bench_manifest.json
+uv tool run py-spy record -o bench.svg -- \
+  .venv/bin/python bench/bench_read_write.py read --sizes 16,32,64 --files 4 --workers 4 \
+  --stream-buffer-size 0 --cache-type none --io-chunk 8388608 --io-concurrency 4 \
+  --manifest /tmp/opendalfs_bench_manifest.json
 ```
 
-High write concurrency can stall on some systems. If runs time out, reduce
-`--fsspec-workers`.
+If high write concurrency causes timeouts, reduce `--fsspec-workers`.
 
 ## Status
 
