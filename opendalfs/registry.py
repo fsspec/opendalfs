@@ -34,6 +34,19 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         kwargs.pop("scheme", None)
         super().__init__(type(self).service, *args, **kwargs)
 
+    def unstrip_protocol(self, path: str) -> str:
+        scheme, _host, _stripped, _query = _parse_opendal_url(path)
+        if scheme == self.protocol:
+            return path
+
+        stripped = self._strip_protocol(path)
+        container = self.storage_options.get(self.container_key)
+        if not container:
+            return super().unstrip_protocol(stripped)
+        if stripped:
+            return f"{self.protocol}://{container}/{stripped}"
+        return f"{self.protocol}://{container}"
+
     @classmethod
     def _strip_protocol(cls, path: Any) -> Any:
         if isinstance(path, (list, tuple)):

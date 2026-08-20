@@ -1,6 +1,7 @@
 """Core functionality tests for filesystem creation and basic operations."""
 
 import logging
+from pathlib import PurePosixPath
 
 import pytest
 
@@ -22,6 +23,14 @@ def test_fsspec_configuration_is_accepted():
     fs.pipe_file("configured.txt", b"works")
 
     assert fs.cat_file("configured.txt") == b"works"
+
+
+def test_pathlike_inputs_follow_fsspec_path_conventions(memory_fs):
+    path = PurePosixPath("pathlike/file.txt")
+
+    memory_fs.pipe_file(path, b"works")
+
+    assert memory_fs.cat_file(path) == b"works"
 
 
 def test_write_read(s3_fs):
