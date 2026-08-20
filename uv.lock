@@ -371,7 +371,6 @@ wheels = [
 
 [[package]]
 name = "opendalfs"
-version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "fsspec" },
@@ -410,7 +409,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'test'" },
     { name = "fsspec" },
     { name = "opendal", specifier = ">=0.46.0" },
-    { name = "opendalfs", extras = ["dev", "test", "bench"], marker = "extra == 'all'" },
+    { name = "opendalfs", extras = ["bench", "dev", "test"], marker = "extra == 'all'" },
     { name = "pyarrow", marker = "extra == 'bench'" },
     { name = "pytest", marker = "extra == 'test'" },
     { name = "pytest-asyncio", marker = "extra == 'test'" },
