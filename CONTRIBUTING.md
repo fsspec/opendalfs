@@ -1,6 +1,6 @@
 # Contributing
 
-opendalfs is a hybrid of Rust and Python. The underlying implementation is written in Rust, with a Python interface provided by PyO3.
+opendalfs is a Python package built on the Apache OpenDAL Python bindings.
 
 ## Development Setup
 
@@ -20,13 +20,14 @@ uv sync --locked --all-extras --dev
 
 The project uses several dependency groups:
 - `dev`: Development tools (ruff)
-- `test`: Testing tools (pytest, pytest-asyncio, pytest-cov, fsspec, s3fs)
+- `test`: Testing tools (pytest, pytest-asyncio, pytest-cov, s3fs, boto3)
+- `bench`: Benchmark tools (pyarrow, s3fs, boto3)
 - `all`: All dependencies combined
 
 Install specific groups as needed:
 ```shell
 pip install -e ".[dev,test]"  # For development and testing
-pip install -e ".[s3]"        # For S3 backend development
+pip install -e ".[bench]"     # For benchmarks
 ```
 
 ## Testing
@@ -68,10 +69,6 @@ docker compose -f tests/docker/docker-compose.yml down
 
 ## CI/CD
 
-Our GitHub Actions workflows handle:
-- Code formatting and linting
-- Building packages
-- Running tests with MinIO
-- Package distribution checks
+Our GitHub Actions workflow runs tests with coverage against MinIO.
 
 See `.github/workflows/` for detailed configurations.
