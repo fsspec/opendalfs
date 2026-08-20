@@ -1,6 +1,6 @@
 [project]
 name = "opendalfs"
-version = "0.0.1"
+dynamic = ["version"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -50,7 +50,7 @@ packages = ["opendalfs"]
 package-dir = {"" = "."}
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
