@@ -104,3 +104,20 @@ async def test_directory_listing_reflects_mutations(memory_fs):
     await memory_fs._rm_file("a/one.txt")
     third = await memory_fs._ls("a", detail=True)
     assert {item["name"] for item in third} == {"a/two.txt"}
+
+
+def test_recursive_listing_descends_into_cached_directories(memory_fs):
+    memory_fs.pipe_file("seed/ds/part=p0/data.parquet", b"p0")
+    memory_fs.pipe_file("seed/ds/part=p1/data.parquet", b"p1")
+
+    memory_fs.ls("seed/ds", detail=True)
+    assert memory_fs.ls("seed/ds/part=p0", detail=False) == [
+        "seed/ds/part=p0/data.parquet"
+    ]
+    assert set(memory_fs.find("seed/ds", withdirs=True)) == {
+        "seed/ds",
+        "seed/ds/part=p0",
+        "seed/ds/part=p0/data.parquet",
+        "seed/ds/part=p1",
+        "seed/ds/part=p1/data.parquet",
+    }
