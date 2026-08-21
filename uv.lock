@@ -399,6 +399,7 @@ dev = [
 ]
 test = [
     { name = "boto3" },
+    { name = "pyarrow" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -413,6 +414,7 @@ requires-dist = [
     { name = "opendal", specifier = ">=0.47.5,<0.48" },
     { name = "opendalfs", extras = ["bench", "dev", "test"], marker = "extra == 'all'" },
     { name = "pyarrow", marker = "extra == 'bench'" },
+    { name = "pyarrow", marker = "extra == 'test'" },
     { name = "pytest", marker = "extra == 'test'" },
     { name = "pytest-asyncio", marker = "extra == 'test'" },
     { name = "pytest-cov", marker = "extra == 'test'" },
