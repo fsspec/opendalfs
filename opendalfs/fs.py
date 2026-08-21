@@ -5,6 +5,7 @@ from typing import Any
 
 from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import trailing_sep
+from fsspec.utils import stringify_path
 import logging
 from opendal import AsyncOperator, Operator
 from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
@@ -12,6 +13,7 @@ from opendal.exceptions import NotFound, Unsupported
 from opendal.layers import RetryLayer
 
 logger = logging.getLogger("opendalfs")
+
 
 class OpendalFileSystem(AsyncFileSystem):
     """OpenDAL implementation of fsspec AsyncFileSystem.
@@ -82,11 +84,22 @@ class OpendalFileSystem(AsyncFileSystem):
             return "file"
         return "other"
 
+    @staticmethod
+    def _directory_path(path: str) -> str:
+        return path if not path or path.endswith("/") else path + "/"
+
+    def _normalize_path(self, path: str) -> str:
+        path = stringify_path(path)
+        normalized = self._strip_protocol(path).lstrip("/")
+        if path.endswith("/"):
+            return self._directory_path(normalized)
+        return normalized
+
     # Async implementations using Rust's async methods directly
     #
     async def _ls(self, path: str, detail=True, **kwargs):
         """List contents of path"""
-        path = self._strip_protocol(path)
+        path = self._normalize_path(path)
         cache_path = path.rstrip("/")
         refresh = bool(kwargs.pop("refresh", False))
 
@@ -98,11 +111,7 @@ class OpendalFileSystem(AsyncFileSystem):
             if cached is not None:
                 return cached
 
-        list_path = path
-        if path and not path.endswith("/"):
-            list_path = path + "/"
-
-        lister = await self.async_fs.list(list_path)
+        lister = await self.async_fs.list(self._directory_path(path))
 
         paths: list[str] = []
         async for entry in lister:
@@ -119,6 +128,7 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _info(self, path: str, **kwargs):
         """Get path info"""
+        path = self._normalize_path(path)
         logger.debug(f"Getting info for: {path}")
         try:
             info = await self.async_fs.stat(path)
@@ -132,11 +142,13 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _mkdir(self, path: str, create_parents: bool = True, **kwargs) -> None:
         """Create directory"""
+        path = self._normalize_path(path)
         await self.async_fs.create_dir(path)
         self.invalidate_cache(self._parent(path.rstrip("/")))
 
     async def _rmdir(self, path: str, recursive: bool = False) -> None:
         """Remove directory"""
+        path = self._normalize_path(path)
         if recursive:
             await self.async_fs.remove_all(path)
         else:
@@ -147,11 +159,14 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _rm_file(self, path: str, **kwargs) -> None:
         """Remove file"""
+        path = self._normalize_path(path)
         await self.async_fs.delete(path)
         self.invalidate_cache(self._parent(path))
 
     async def _cp_file(self, path1: str, path2: str, **kwargs) -> None:
         """Copy file from path1 to path2."""
+        path1 = self._normalize_path(path1)
+        path2 = self._normalize_path(path2)
         try:
             await self.async_fs.copy(path1, path2)
         except Unsupported:
@@ -159,8 +174,11 @@ class OpendalFileSystem(AsyncFileSystem):
             await self.async_fs.write(path2, data)
         self.invalidate_cache(self._parent(path2.rstrip("/")))
 
-    async def _cat_file(self, path: str, start: int | None = None, end: int | None = None, **kwargs):
+    async def _cat_file(
+        self, path: str, start: int | None = None, end: int | None = None, **kwargs
+    ):
         """Get file content as bytes (async implementation)."""
+        path = self._normalize_path(path)
         if start is None and end is None:
             return await self.async_fs.read(path)
 
@@ -193,19 +211,25 @@ class OpendalFileSystem(AsyncFileSystem):
             return b""
         return await self.async_fs.read(path, offset=start, size=length)
 
-    async def _pipe_file(self, path: str, value: bytes, mode: str = "overwrite", **kwargs) -> None:
+    async def _pipe_file(
+        self, path: str, value: bytes, mode: str = "overwrite", **kwargs
+    ) -> None:
         """Write bytes into file (async implementation)."""
+        path = self._normalize_path(path)
         if mode == "create" and await self._exists(path):
             raise FileExistsError(path)
         await self.async_fs.write(path, value)
         self.invalidate_cache(self._parent(path.rstrip("/")))
 
     async def _opendal_rename(self, source: str, target: str) -> None:
+        source = self._normalize_path(source)
+        target = self._normalize_path(target)
         await self.async_fs.rename(source, target)
 
     # Higher-level async operations built on core methods
     async def _exists(self, path: str, **kwargs):
         """Check path existence"""
+        path = self._normalize_path(path)
         return await self.async_fs.exists(path)
 
     def _open(
@@ -218,6 +242,7 @@ class OpendalFileSystem(AsyncFileSystem):
         **kwargs: Any,
     ) -> OpendalBufferedFile:
         """Open a file for reading or writing"""
+        path = self._normalize_path(path)
         return OpendalBufferedFile(
             self,
             path,
@@ -231,6 +256,8 @@ class OpendalFileSystem(AsyncFileSystem):
     async def open_async(self, path, mode="rb", **kwargs):
         if "b" not in mode or kwargs.get("compression"):
             raise ValueError
+
+        path = self._normalize_path(path)
 
         size = None
         if mode == "rb":
@@ -254,6 +281,7 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _modified(self, path: str):
         """Get modified time (async version)"""
+        path = self._normalize_path(path)
         try:
             info = await self.async_fs.stat(path)
         except NotFound as err:
@@ -261,7 +289,14 @@ class OpendalFileSystem(AsyncFileSystem):
         else:
             return info.last_modified
 
-    def mv(self, path1, path2, recursive: bool = False, maxdepth: int | None = None, **kwargs):
+    def mv(
+        self,
+        path1,
+        path2,
+        recursive: bool = False,
+        maxdepth: int | None = None,
+        **kwargs,
+    ):
         if (
             isinstance(path1, str)
             and isinstance(path2, str)
@@ -269,8 +304,8 @@ class OpendalFileSystem(AsyncFileSystem):
             and maxdepth is None
             and not has_magic(path1)
         ):
-            src = self._strip_protocol(path1)
-            dst = self._strip_protocol(path2)
+            src = self._normalize_path(path1)
+            dst = self._normalize_path(path2)
             if trailing_sep(dst) or self.isdir(dst):
                 base = src.rstrip("/").split("/")[-1]
                 dst = dst.rstrip("/") + "/" + base
@@ -281,7 +316,9 @@ class OpendalFileSystem(AsyncFileSystem):
                 return None
             except Unsupported:
                 pass
-        return super().mv(path1, path2, recursive=recursive, maxdepth=maxdepth, **kwargs)
+        return super().mv(
+            path1, path2, recursive=recursive, maxdepth=maxdepth, **kwargs
+        )
 
     def invalidate_cache(self, path: str | None = None):
         if path is None:
@@ -289,7 +326,7 @@ class OpendalFileSystem(AsyncFileSystem):
             super().invalidate_cache(path)
             return
 
-        stripped = self._strip_protocol(path).rstrip("/")
+        stripped = self._normalize_path(path).rstrip("/")
         self.dircache.pop(stripped, None)
         prefix = stripped + "/"
         for key in list(self.dircache):

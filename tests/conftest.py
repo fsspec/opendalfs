@@ -1,5 +1,6 @@
 import pytest
 from opendalfs import OpendalFileSystem
+from opendalfs.registry import OpendalS3FileSystem
 import boto3
 import asyncio
 
@@ -35,8 +36,7 @@ def s3_fs(minio_server):
     """Create an S3 filesystem for testing sync operations."""
     from .utils.s3 import create_test_bucket, cleanup_bucket, verify_bucket
 
-    fs = OpendalFileSystem(
-        scheme="s3",
+    fs = OpendalS3FileSystem(
         bucket="test-bucket",
         endpoint="http://localhost:9000",
         region="us-east-1",
@@ -61,6 +61,24 @@ def s3_fs(minio_server):
     yield fs
     cleanup_bucket()
 
+
+@pytest.fixture
+def s3fs_fs(s3_fs):
+    """Create the s3fs reference implementation against the same bucket."""
+    from s3fs import S3FileSystem
+
+    return S3FileSystem(
+        key="minioadmin",
+        secret="minioadmin",
+        client_kwargs={
+            "endpoint_url": "http://localhost:9000",
+            "region_name": "us-east-1",
+        },
+        use_listings_cache=False,
+        skip_instance_cache=True,
+    )
+
+
 @pytest.fixture
 def memory_fs():
     """Create an in-memory filesystem for tests that don't require external services."""
@@ -74,7 +92,9 @@ def memory_fs():
 @pytest.fixture(params=["memory", "s3"])
 def any_fs(request):
     if request.param == "memory":
-        return OpendalFileSystem(scheme="memory", asynchronous=False, skip_instance_cache=True)
+        return OpendalFileSystem(
+            scheme="memory", asynchronous=False, skip_instance_cache=True
+        )
     return request.getfixturevalue("s3_fs")
 
 
