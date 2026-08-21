@@ -1,3 +1,5 @@
+import gc
+
 import pytest
 
 
@@ -31,6 +33,18 @@ def test_open_exclusive_create(any_fs):
     with pytest.raises(FileExistsError):
         with any_fs.open("exists.txt", "xb") as f:
             f.write(b"y")
+
+
+def test_failed_open_does_not_emit_an_unraisable_error(memory_fs, recwarn):
+    with pytest.raises(FileNotFoundError):
+        memory_fs.open("missing.txt", "rb")
+
+    gc.collect()
+
+    assert not any(
+        issubclass(warning.category, pytest.PytestUnraisableExceptionWarning)
+        for warning in recwarn
+    )
 
 
 @pytest.mark.asyncio
