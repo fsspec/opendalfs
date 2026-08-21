@@ -10,8 +10,12 @@ from fsspec.implementations.local import trailing_sep
 from fsspec.utils import stringify_path
 import logging
 from opendal import AsyncOperator, Operator
-from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
-from opendal.exceptions import NotFound, Unsupported
+from .file import (
+    OpendalAsyncBufferedFile,
+    OpendalBufferedFile,
+    _exclusive_write_options,
+)
+from opendal.exceptions import AlreadyExists, ConditionNotMatch, NotFound, Unsupported
 from opendal.layers import RetryLayer
 
 logger = logging.getLogger("opendalfs")
@@ -308,9 +312,14 @@ class OpendalFileSystem(AsyncFileSystem):
     ) -> None:
         """Write bytes into file (async implementation)."""
         path = self._normalize_path(path)
-        if mode == "create" and await self._exists(path):
+        exclusive = mode == "create"
+        write_options = _exclusive_write_options(self.async_fs, exclusive)
+        if exclusive and not write_options and await self._exists(path):
             raise FileExistsError(path)
-        await self.async_fs.write(path, value)
+        try:
+            await self.async_fs.write(path, value, **write_options)
+        except (AlreadyExists, ConditionNotMatch) as err:
+            raise FileExistsError(path) from err
         self.invalidate_cache(self._parent(path.rstrip("/")))
 
     async def _opendal_rename(self, source: str, target: str) -> None:
