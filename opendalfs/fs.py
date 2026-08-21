@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from glob import has_magic
+import os
 from typing import Any
 
-from fsspec.asyn import AsyncFileSystem
+from fsspec.asyn import AsyncFileSystem, sync_wrapper
+from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.implementations.local import trailing_sep
 from fsspec.utils import stringify_path
 import logging
@@ -245,6 +247,53 @@ class OpendalFileSystem(AsyncFileSystem):
             return b""
         return await self.async_fs.read(path, offset=start, size=length)
 
+    async def _get_file(
+        self, rpath, lpath, callback=DEFAULT_CALLBACK, **kwargs
+    ) -> None:
+        """Download a remote file to a local path."""
+        rpath = self._normalize_path(rpath)
+        lpath = os.fspath(lpath)
+        if os.path.isdir(lpath):
+            return
+
+        info = await self._info(rpath)
+        callback.set_size(info["size"])
+        reader = await self.async_fs.open(rpath, "rb")
+        try:
+            with open(lpath, "wb") as target:
+                while chunk := await reader.read(2**20):
+                    callback.relative_update(target.write(chunk))
+        finally:
+            await reader.close()
+
+    async def _put_file(
+        self,
+        lpath,
+        rpath,
+        callback=DEFAULT_CALLBACK,
+        mode="overwrite",
+        **kwargs,
+    ) -> None:
+        """Upload a local file to a remote path."""
+        lpath = os.fspath(lpath)
+        if os.path.isdir(lpath):
+            return
+
+        rpath = self._normalize_path(rpath)
+        if mode == "create" and await self._exists(rpath):
+            raise FileExistsError(rpath)
+
+        callback.set_size(os.path.getsize(lpath))
+        writer = await self.async_fs.open(rpath, "wb")
+        try:
+            with open(lpath, "rb") as source:
+                while chunk := source.read(2**20):
+                    await writer.write(chunk)
+                    callback.relative_update(len(chunk))
+        finally:
+            await writer.close()
+        self.invalidate_cache(self._parent(rpath))
+
     async def _pipe_file(
         self, path: str, value: bytes, mode: str = "overwrite", **kwargs
     ) -> None:
@@ -316,6 +365,8 @@ class OpendalFileSystem(AsyncFileSystem):
             raise FileNotFoundError(path) from err
         else:
             return info.last_modified
+
+    modified = sync_wrapper(_modified)
 
     def mv(
         self,
