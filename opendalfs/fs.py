@@ -168,11 +168,20 @@ class OpendalFileSystem(AsyncFileSystem):
         path1 = self._normalize_path(path1)
         path2 = self._normalize_path(path2)
         try:
-            await self.async_fs.copy(path1, path2)
-        except Unsupported:
-            data = await self.async_fs.read(path1)
-            await self.async_fs.write(path2, data)
+            try:
+                await self.async_fs.copy(path1, path2)
+            except Unsupported:
+                data = await self.async_fs.read(path1)
+                await self.async_fs.write(path2, data)
+        except NotFound as err:
+            raise FileNotFoundError(path1) from err
         self.invalidate_cache(self._parent(path2.rstrip("/")))
+
+    async def _read(self, path: str, **kwargs):
+        try:
+            return await self.async_fs.read(path, **kwargs)
+        except NotFound as err:
+            raise FileNotFoundError(path) from err
 
     async def _cat_file(
         self, path: str, start: int | None = None, end: int | None = None, **kwargs
@@ -180,7 +189,7 @@ class OpendalFileSystem(AsyncFileSystem):
         """Get file content as bytes (async implementation)."""
         path = self._normalize_path(path)
         if start is None and end is None:
-            return await self.async_fs.read(path)
+            return await self._read(path)
 
         size = None
         if (start is not None and start < 0) or (end is not None and end < 0):
@@ -203,13 +212,13 @@ class OpendalFileSystem(AsyncFileSystem):
 
         if end is None:
             if start == 0:
-                return await self.async_fs.read(path)
-            return await self.async_fs.read(path, offset=start)
+                return await self._read(path)
+            return await self._read(path, offset=start)
 
         length = end - start
         if length <= 0:
             return b""
-        return await self.async_fs.read(path, offset=start, size=length)
+        return await self._read(path, offset=start, size=length)
 
     async def _pipe_file(
         self, path: str, value: bytes, mode: str = "overwrite", **kwargs
@@ -224,7 +233,10 @@ class OpendalFileSystem(AsyncFileSystem):
     async def _opendal_rename(self, source: str, target: str) -> None:
         source = self._normalize_path(source)
         target = self._normalize_path(target)
-        await self.async_fs.rename(source, target)
+        try:
+            await self.async_fs.rename(source, target)
+        except NotFound as err:
+            raise FileNotFoundError(source) from err
 
     # Higher-level async operations built on core methods
     async def _exists(self, path: str, **kwargs):
@@ -314,6 +326,8 @@ class OpendalFileSystem(AsyncFileSystem):
                 self.invalidate_cache(self._parent(src.rstrip("/")))
                 self.invalidate_cache(self._parent(dst.rstrip("/")))
                 return None
+            except NotFound as err:
+                raise FileNotFoundError(src) from err
             except Unsupported:
                 pass
         return super().mv(
