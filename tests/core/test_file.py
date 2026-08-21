@@ -118,3 +118,48 @@ async def test_cat_file_ranges_async():
     assert await fs._cat_file("range.txt", end=-1) == b"012345678"
     assert await fs._cat_file("range.txt", start=-4, end=-1) == b"678"
     assert await fs._cat_file("range.txt", start=5, end=5) == b""
+
+
+def test_writer_options_defaults(memory_fs):
+    opts = memory_fs._writer_options(memory_fs.operator, {}, exclusive=False)
+    assert opts == {"concurrent": 8}
+
+
+def test_writer_options_file_override(memory_fs):
+    opts = memory_fs._writer_options(
+        memory_fs.operator,
+        {"write_concurrent": 4, "write_chunk": 5 * 2**20},
+        exclusive=False,
+    )
+    assert opts == {"concurrent": 4, "chunk": 5 * 2**20}
+
+    opts = memory_fs._writer_options(
+        memory_fs.operator, {"write_concurrent": 0}, exclusive=False
+    )
+    assert opts == {}
+
+
+def test_open_write_concurrent_roundtrip(any_fs):
+    data = b"x" * (6 * 2**20 + 7)
+    with any_fs.open(
+        "concurrent.bin", "wb", write_concurrent=4, write_chunk=5 * 2**20
+    ) as f:
+        assert f.kwargs["write_concurrent"] == 4
+        f.write(data)
+
+    assert any_fs.cat_file("concurrent.bin") == data
+
+
+@pytest.mark.asyncio
+async def test_open_async_write_concurrent_roundtrip():
+    from opendalfs import OpendalFileSystem
+
+    fs = OpendalFileSystem(scheme="memory", asynchronous=True, skip_instance_cache=True)
+    data = b"y" * (6 * 2**20 + 3)
+    async with await fs.open_async(
+        "concurrent.bin", "wb", write_concurrent=4, write_chunk=5 * 2**20
+    ) as f:
+        assert f.kwargs["write_concurrent"] == 4
+        await f.write(data)
+
+    assert await fs._cat_file("concurrent.bin") == data

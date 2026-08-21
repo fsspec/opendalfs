@@ -98,8 +98,8 @@ class OpendalBufferedFile(AbstractBufferedFile):
                 self._opendal_writer = self.fs.operator.open(
                     self.path,
                     "wb",
-                    **_exclusive_write_options(
-                        self.fs.operator, self.mode == "xb"
+                    **self.fs._writer_options(
+                        self.fs.operator, self.kwargs, self.mode == "xb"
                     ),
                 )
             except (AlreadyExists, ConditionNotMatch) as err:
@@ -138,7 +138,11 @@ class OpendalBufferedFile(AbstractBufferedFile):
                 except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
-                    self._opendal_writer = self.fs.operator.open(self.path, "wb")
+                    self._opendal_writer = self.fs.operator.open(
+                        self.path,
+                        "wb",
+                        **self.fs._writer_options(self.fs.operator, self.kwargs, False),
+                    )
                     self._opendal_writer.write(existing)
                     self.offset = len(existing)
 
@@ -155,9 +159,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
                 self.fs.operator.write(
                     self.path,
                     b"",
-                    **_exclusive_write_options(
-                        self.fs.operator, self.mode == "xb"
-                    ),
+                    **_exclusive_write_options(self.fs.operator, self.mode == "xb"),
                 )
             except (AlreadyExists, ConditionNotMatch) as err:
                 self.closed = True
@@ -262,8 +264,8 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
                 self._opendal_writer = await self.fs.async_fs.open(
                     self.path,
                     "wb",
-                    **_exclusive_write_options(
-                        self.fs.async_fs, self._exclusive_create
+                    **self.fs._writer_options(
+                        self.fs.async_fs, self.kwargs, self._exclusive_create
                     ),
                 )
             except (AlreadyExists, ConditionNotMatch) as err:
@@ -298,7 +300,11 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
                 except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
-                    self._opendal_writer = await self.fs.async_fs.open(self.path, "wb")
+                    self._opendal_writer = await self.fs.async_fs.open(
+                        self.path,
+                        "wb",
+                        **self.fs._writer_options(self.fs.async_fs, self.kwargs, False),
+                    )
                     await self._opendal_writer.write(existing)
                     self.offset = len(existing)
 

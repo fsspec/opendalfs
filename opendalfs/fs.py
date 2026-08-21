@@ -41,6 +41,8 @@ class OpendalFileSystem(AsyncFileSystem):
         listings_expiry_time: float | None = None,
         max_paths: int | None = None,
         retries: int = 5,
+        write_concurrent: int = 8,
+        write_chunk: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize OpendalFileSystem.
@@ -63,6 +65,14 @@ class OpendalFileSystem(AsyncFileSystem):
             Maximum number of cached directory listings
         retries : int
             Number of retries for temporary OpenDAL failures
+        write_concurrent : int
+            Number of concurrent part uploads for opened writers
+            (default: 8). Set to 1 to restore sequential uploads.
+            Overridable per file via ``fs.open(..., "wb", write_concurrent=n)``.
+        write_chunk : int, optional
+            Part size in bytes for opened writers; defaults to the OpenDAL
+            backend's own part size. Overridable per file via
+            ``fs.open(..., "wb", write_chunk=n)``.
         **kwargs : dict
             Passed only to the OpenDAL backend implementation
         """
@@ -77,10 +87,25 @@ class OpendalFileSystem(AsyncFileSystem):
         )
         self.scheme = scheme
         self.retries = retries
+        self.write_concurrent = write_concurrent
+        self.write_chunk = write_chunk
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
         if retries > 0:
             self.async_fs = self.async_fs.layer(RetryLayer(max_times=retries))
         self.operator: Operator = self.async_fs.to_operator()
+
+    def _writer_options(
+        self, operator: Any, file_kwargs: dict[str, Any], exclusive: bool
+    ) -> dict[str, Any]:
+        """Build OpenDAL writer options for an opened upload stream."""
+        options = _exclusive_write_options(operator, exclusive)
+        concurrent = file_kwargs.get("write_concurrent", self.write_concurrent)
+        if concurrent:
+            options["concurrent"] = concurrent
+        chunk = file_kwargs.get("write_chunk", self.write_chunk)
+        if chunk:
+            options["chunk"] = chunk
+        return options
 
     @staticmethod
     def _fsspec_type_from_mode(mode: Any) -> str:
@@ -293,7 +318,9 @@ class OpendalFileSystem(AsyncFileSystem):
             raise FileExistsError(rpath)
 
         callback.set_size(os.path.getsize(lpath))
-        writer = await self.async_fs.open(rpath, "wb")
+        writer = await self.async_fs.open(
+            rpath, "wb", **self._writer_options(self.async_fs, {}, False)
+        )
         try:
             with open(lpath, "rb") as source:
                 while chunk := source.read(2**20):
