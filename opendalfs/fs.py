@@ -28,6 +28,10 @@ class OpendalFileSystem(AsyncFileSystem):
         *args: Any,
         asynchronous: bool = False,
         loop=None,
+        batch_size: int | None = None,
+        use_listings_cache: bool = True,
+        listings_expiry_time: float | None = None,
+        max_paths: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize OpendalFileSystem.
@@ -40,10 +44,26 @@ class OpendalFileSystem(AsyncFileSystem):
             Whether to return async versions of methods (default: False)
         loop : event loop (optional)
             Specific event loop to use
+        batch_size : int, optional
+            Maximum number of concurrent fsspec batch operations
+        use_listings_cache : bool
+            Whether fsspec should cache directory listings
+        listings_expiry_time : float, optional
+            Number of seconds before cached listings expire
+        max_paths : int, optional
+            Maximum number of cached directory listings
         **kwargs : dict
-            Passed to backend implementation
+            Passed only to the OpenDAL backend implementation
         """
-        super().__init__(asynchronous=asynchronous, loop=loop, *args, **kwargs)
+        super().__init__(
+            *args,
+            asynchronous=asynchronous,
+            loop=loop,
+            batch_size=batch_size,
+            use_listings_cache=use_listings_cache,
+            listings_expiry_time=listings_expiry_time,
+            max_paths=max_paths,
+        )
         self.scheme = scheme
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
         self.operator: Operator = self.async_fs.to_operator()

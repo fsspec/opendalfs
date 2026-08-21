@@ -7,6 +7,23 @@ import pytest
 logger = logging.getLogger(__name__)
 
 
+def test_fsspec_configuration_is_accepted():
+    from opendalfs import OpendalFileSystem
+
+    fs = OpendalFileSystem(
+        scheme="memory",
+        batch_size=2,
+        use_listings_cache=False,
+        listings_expiry_time=10,
+        max_paths=2,
+        skip_instance_cache=True,
+    )
+
+    fs.pipe_file("configured.txt", b"works")
+
+    assert fs.cat_file("configured.txt") == b"works"
+
+
 def test_write_read(s3_fs):
     """Test basic write and read operations."""
     for fs in [s3_fs]:
