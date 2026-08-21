@@ -9,6 +9,7 @@ import logging
 from opendal import AsyncOperator, Operator
 from .file import OpendalAsyncBufferedFile, OpendalBufferedFile
 from opendal.exceptions import NotFound, Unsupported
+from opendal.layers import RetryLayer
 
 logger = logging.getLogger("opendalfs")
 
@@ -20,7 +21,6 @@ class OpendalFileSystem(AsyncFileSystem):
     """
 
     async_impl = True
-    retries = 5  # Like s3fs
 
     def __init__(
         self,
@@ -32,6 +32,7 @@ class OpendalFileSystem(AsyncFileSystem):
         use_listings_cache: bool = True,
         listings_expiry_time: float | None = None,
         max_paths: int | None = None,
+        retries: int = 5,
         **kwargs: Any,
     ) -> None:
         """Initialize OpendalFileSystem.
@@ -52,6 +53,8 @@ class OpendalFileSystem(AsyncFileSystem):
             Number of seconds before cached listings expire
         max_paths : int, optional
             Maximum number of cached directory listings
+        retries : int
+            Number of retries for temporary OpenDAL failures
         **kwargs : dict
             Passed only to the OpenDAL backend implementation
         """
@@ -65,7 +68,10 @@ class OpendalFileSystem(AsyncFileSystem):
             max_paths=max_paths,
         )
         self.scheme = scheme
+        self.retries = retries
         self.async_fs = AsyncOperator(scheme, *args, **kwargs)
+        if retries > 0:
+            self.async_fs = self.async_fs.layer(RetryLayer(max_times=retries))
         self.operator: Operator = self.async_fs.to_operator()
 
     @staticmethod
