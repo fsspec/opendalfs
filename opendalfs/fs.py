@@ -109,13 +109,9 @@ class OpendalFileSystem(AsyncFileSystem):
         cache_path = path.rstrip("/")
         refresh = bool(kwargs.pop("refresh", False))
 
-        if not refresh:
-            try:
-                cached = self._ls_from_cache(cache_path)
-            except FileNotFoundError:
-                cached = None
-            if cached is not None:
-                return cached if detail else [info["name"] for info in cached]
+        if not refresh and cache_path in self.dircache:
+            cached = self.dircache[cache_path]
+            return cached if detail else [info["name"] for info in cached]
 
         lister = await self.async_fs.list(self._directory_path(path))
 
