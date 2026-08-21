@@ -32,6 +32,7 @@ test = [
     "pytest",           # Test framework
     "pytest-asyncio",   # Async test support
     "pytest-cov",       # Coverage reporting
+    "pyarrow",          # Arrow filesystem acceptance tests
     "s3fs",             # S3 filesystem support
     "boto3",            # AWS S3 client for environment provision
 ]

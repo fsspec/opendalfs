@@ -103,52 +103,86 @@ class OpendalFileSystem(AsyncFileSystem):
         cache_path = path.rstrip("/")
         refresh = bool(kwargs.pop("refresh", False))
 
-        if detail and not refresh:
+        if not refresh:
             try:
                 cached = self._ls_from_cache(cache_path)
             except FileNotFoundError:
                 cached = None
             if cached is not None:
-                return cached
+                return cached if detail else [info["name"] for info in cached]
 
         lister = await self.async_fs.list(self._directory_path(path))
 
-        paths: list[str] = []
-        async for entry in lister:
-            paths.append(entry.path)
-
-        if not detail:
-            return paths
-
         out: list[dict[str, Any]] = []
-        for p in paths:
-            out.append(await self._info(p))
+        async for entry in lister:
+            out.append(self._info_from_metadata(entry.path, entry.metadata))
+
         self.dircache[cache_path] = out
-        return out
+        return out if detail else [info["name"] for info in out]
+
+    def _info_from_metadata(self, path: str, metadata: Any) -> dict[str, Any]:
+        entry_type = self._fsspec_type_from_mode(metadata.mode)
+        return {
+            "name": path.rstrip("/") if entry_type == "directory" else path,
+            "size": metadata.content_length,
+            "type": entry_type,
+        }
 
     async def _info(self, path: str, **kwargs):
         """Get path info"""
         path = self._normalize_path(path)
         logger.debug(f"Getting info for: {path}")
+
+        canonical_path = path.rstrip("/")
+        refresh = bool(kwargs.pop("refresh", False))
+        if not refresh:
+            cached = self._ls_from_cache(canonical_path)
+            if cached is not None:
+                exact = [info for info in cached if info["name"] == canonical_path]
+                if exact and (
+                    not path.endswith("/") or exact[0]["type"] == "directory"
+                ):
+                    return exact[0]
+                if not exact:
+                    return {"name": canonical_path, "size": 0, "type": "directory"}
+
         try:
             info = await self.async_fs.stat(path)
-        except NotFound as err:
-            raise FileNotFoundError(path) from err
-        return {
-            "name": path,
-            "size": info.content_length,
-            "type": self._fsspec_type_from_mode(info.mode),
-        }
+        except NotFound:
+            if path and not path.endswith("/"):
+                try:
+                    info = await self.async_fs.stat(self._directory_path(path))
+                except NotFound:
+                    info = None
+            else:
+                info = None
+
+        if info is not None:
+            return self._info_from_metadata(path, info)
+
+        directory_path = self._directory_path(canonical_path)
+        try:
+            lister = await self.async_fs.list(directory_path, limit=1)
+            async for _ in lister:
+                return {
+                    "name": canonical_path,
+                    "size": 0,
+                    "type": "directory",
+                }
+        except NotFound:
+            pass
+
+        raise FileNotFoundError(path)
 
     async def _mkdir(self, path: str, create_parents: bool = True, **kwargs) -> None:
         """Create directory"""
-        path = self._normalize_path(path)
+        path = self._directory_path(self._normalize_path(path))
         await self.async_fs.create_dir(path)
         self.invalidate_cache(self._parent(path.rstrip("/")))
 
     async def _rmdir(self, path: str, recursive: bool = False) -> None:
         """Remove directory"""
-        path = self._normalize_path(path)
+        path = self._directory_path(self._normalize_path(path))
         if recursive:
             await self.async_fs.remove_all(path)
         else:
@@ -225,12 +259,6 @@ class OpendalFileSystem(AsyncFileSystem):
         source = self._normalize_path(source)
         target = self._normalize_path(target)
         await self.async_fs.rename(source, target)
-
-    # Higher-level async operations built on core methods
-    async def _exists(self, path: str, **kwargs):
-        """Check path existence"""
-        path = self._normalize_path(path)
-        return await self.async_fs.exists(path)
 
     def _open(
         self,
