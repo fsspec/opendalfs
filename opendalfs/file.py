@@ -30,6 +30,10 @@ class OpendalBufferedFile(AbstractBufferedFile):
         size=None,
         **kwargs,
     ):
+        self._opendal_writer = None
+        self._append_via_write = False
+        self._initiated = False
+
         super().__init__(
             fs,
             path,
@@ -41,10 +45,6 @@ class OpendalBufferedFile(AbstractBufferedFile):
             size=size,
             **kwargs,
         )
-
-        self._opendal_writer = None
-        self._append_via_write = False
-        self._initiated = False
 
         if mode == "ab":
             # Match python semantics: append writes start from end-of-file.
@@ -59,7 +59,10 @@ class OpendalBufferedFile(AbstractBufferedFile):
             return b""
 
         length = end - start
-        return self.fs.operator.read(self.path, offset=start, size=length)
+        try:
+            return self.fs.operator.read(self.path, offset=start, size=length)
+        except NotFound as err:
+            raise FileNotFoundError(self.path) from err
 
     def _upload_chunk(self, final: bool = False):
         """Upload partial chunk of data"""
@@ -170,6 +173,9 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
         size=None,
         **kwargs,
     ):
+        self._opendal_writer = None
+        self._append_via_write = False
+        self._initiated = False
         self._exclusive_create = mode == "xb"
         normalized_mode = "wb" if self._exclusive_create else mode
         super().__init__(
@@ -184,16 +190,15 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             **kwargs,
         )
 
-        self._opendal_writer = None
-        self._append_via_write = False
-        self._initiated = False
-
     async def _fetch_range(self, start: int, end: int):
         if start >= end:
             return b""
 
         length = end - start
-        return await self.fs.async_fs.read(self.path, offset=start, size=length)
+        try:
+            return await self.fs.async_fs.read(self.path, offset=start, size=length)
+        except NotFound as err:
+            raise FileNotFoundError(self.path) from err
 
     async def _upload_chunk(self, final: bool = False):
         if not self._initiated:
