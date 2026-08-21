@@ -9,8 +9,6 @@ from uuid import uuid4
 import fsspec
 import pyarrow.fs as pafs
 
-import opendal
-
 
 def _env_first(*names: str) -> str | None:
     for name in names:
@@ -148,28 +146,7 @@ def _run_arrow_direct(config: dict[str, str], args, size_mb: int) -> None:
     _report("arrow-direct", size_mb, args.files, write_s, read_s)
 
 
-def _ensure_opendal_file_types() -> None:
-    if hasattr(opendal, "AsyncFile") and hasattr(opendal, "File"):
-        return
-    try:
-        import opendal.file as opendal_file
-    except Exception:
-        class _ShimFile:
-            pass
-
-        opendal.AsyncFile = _ShimFile
-        opendal.File = _ShimFile
-        return
-
-    if not hasattr(opendal, "AsyncFile"):
-        opendal.AsyncFile = opendal_file.AsyncFile
-    if not hasattr(opendal, "File"):
-        opendal.File = opendal_file.File
-
-
 def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> None:
-    _ensure_opendal_file_types()
-
     if args.opendalfs_path:
         import sys
 

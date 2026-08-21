@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import logging
 
 from fsspec.asyn import AbstractAsyncStreamedFile
 from fsspec.spec import AbstractBufferedFile
-from opendal import AsyncFile as OpendalAsyncFile
-from opendal import File as OpendalFile
 from opendal.exceptions import NotFound
+from opendal.file import AsyncFile as OpendalAsyncFile
+from opendal.file import File as OpendalFile
 
 logger = logging.getLogger("opendalfs")
 
