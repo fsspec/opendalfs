@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 from glob import has_magic
 import os
 from typing import Any
@@ -7,7 +8,7 @@ from typing import Any
 from fsspec.asyn import AsyncFileSystem, sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.implementations.local import trailing_sep
-from fsspec.utils import stringify_path
+from fsspec.utils import stringify_path, tokenize
 import logging
 from opendal import AsyncOperator, Operator
 from .file import (
@@ -138,22 +139,50 @@ class OpendalFileSystem(AsyncFileSystem):
             cached = self.dircache[cache_path]
             return cached if detail else [info["name"] for info in cached]
 
+        if path and not path.endswith("/"):
+            try:
+                metadata = await self.async_fs.stat(path)
+            except NotFound:
+                pass
+            else:
+                info = self._info_from_metadata(path, metadata)
+                if info["type"] != "directory":
+                    out = [info]
+                    self.dircache[cache_path] = out
+                    return out if detail else [info["name"]]
+
         lister = await self.async_fs.list(self._directory_path(path))
 
         out: list[dict[str, Any]] = []
         async for entry in lister:
-            out.append(self._info_from_metadata(entry.path, entry.metadata))
+            info = self._info_from_metadata(entry.path, entry.metadata)
+            # Some OpenDAL backends include the listed directory itself.  fsspec's
+            # ``ls`` contract only returns its children.
+            is_listed_directory = (
+                info["type"] == "directory" and info["name"].rstrip("/") == cache_path
+            )
+            if not is_listed_directory:
+                out.append(info)
 
         self.dircache[cache_path] = out
         return out if detail else [info["name"] for info in out]
 
     def _info_from_metadata(self, path: str, metadata: Any) -> dict[str, Any]:
         entry_type = self._fsspec_type_from_mode(metadata.mode)
-        return {
+        info: dict[str, Any] = {
             "name": path.rstrip("/") if entry_type == "directory" else path,
             "size": metadata.content_length,
             "type": entry_type,
         }
+        for output_name, value in (
+            ("etag", metadata.etag),
+            ("content_md5", metadata.content_md5),
+            ("version", metadata.version),
+            ("mtime", metadata.last_modified),
+        ):
+            if value is not None:
+                info[output_name] = value
+        return info
 
     async def _info(self, path: str, **kwargs):
         """Get path info"""
@@ -203,35 +232,76 @@ class OpendalFileSystem(AsyncFileSystem):
 
     async def _mkdir(self, path: str, create_parents: bool = True, **kwargs) -> None:
         """Create directory"""
-        path = self._directory_path(self._normalize_path(path))
-        await self.async_fs.create_dir(path)
-        self.invalidate_cache(self._parent(path.rstrip("/")))
+        base = self._normalize_path(path).rstrip("/")
+        if await self._exists(base, refresh=True):
+            raise FileExistsError(base)
 
-    async def _rmdir(self, path: str, recursive: bool = False) -> None:
+        parent = self._parent(base)
+        if not create_parents and parent and not await self._isdir(parent):
+            raise FileNotFoundError(parent)
+
+        if not self.async_fs.capability().create_dir:
+            return
+
+        await self.async_fs.create_dir(self._directory_path(base))
+        self.invalidate_cache(base)
+
+    async def _makedirs(self, path: str, exist_ok: bool = False) -> None:
+        """Create a directory and any missing parents."""
+        try:
+            await self._mkdir(path, create_parents=True)
+        except FileExistsError:
+            if exist_ok and await self._isdir(path):
+                return
+            raise
+
+    async def _rmdir(self, path: str) -> None:
         """Remove directory"""
-        path = self._directory_path(self._normalize_path(path))
-        if recursive:
-            await self.async_fs.remove_all(path)
-        else:
-            await self.async_fs.delete(path)
-        base = path.rstrip("/")
-        self.invalidate_cache(path)
-        self.invalidate_cache(self._parent(base))
+        base = self._normalize_path(path).rstrip("/")
+        info = await self._info(base, refresh=True)
+        if info["type"] != "directory":
+            raise NotADirectoryError(base)
+
+        path = self._directory_path(base)
+        if await self._ls(base, detail=False, refresh=True):
+            raise OSError(errno.ENOTEMPTY, "Directory not empty", base)
+        await self.async_fs.delete(path)
+        self.invalidate_cache(base)
+
+    rmdir = sync_wrapper(_rmdir)
 
     async def _rm_file(self, path: str, **kwargs) -> None:
         """Remove file"""
-        path = self._normalize_path(path)
-        await self.async_fs.delete(path)
-        self.invalidate_cache(self._parent(path))
+        path = self._normalize_path(path).rstrip("/")
+        try:
+            info = await self._info(path, refresh=True)
+        except FileNotFoundError:
+            info = None
+
+        backend_path = (
+            self._directory_path(path)
+            if info is not None and info["type"] == "directory"
+            else path
+        )
+        await self.async_fs.delete(backend_path)
+        self.invalidate_cache(path)
 
     async def _cp_file(self, path1: str, path2: str, **kwargs) -> None:
         """Copy file from path1 to path2."""
         path1 = self._normalize_path(path1)
         path2 = self._normalize_path(path2)
+        capability = self.async_fs.capability()
+        # fsspec expands recursive copies into both files and directories,
+        # while OpenDAL's copy operation is intentionally file-only.
+        if trailing_sep(path1) or await self._isdir(path1):
+            if capability.create_dir:
+                await self.async_fs.create_dir(self._directory_path(path2))
+                self.invalidate_cache(self._parent(path2.rstrip("/")))
+            return
         try:
-            try:
+            if capability.copy:
                 await self.async_fs.copy(path1, path2)
-            except Unsupported:
+            else:
                 data = await self.async_fs.read(path1)
                 await self.async_fs.write(path2, data)
         except NotFound as err:
@@ -372,6 +442,10 @@ class OpendalFileSystem(AsyncFileSystem):
     ) -> OpendalBufferedFile:
         """Open a file for reading or writing"""
         path = self._normalize_path(path)
+        # Match Python/fsspec's eager exclusive-create contract.  Backends with
+        # conditional writes still enforce atomicity when the upload commits.
+        if mode == "xb" and self.operator.exists(path):
+            raise FileExistsError(path)
         return OpendalBufferedFile(
             self,
             path,
@@ -387,6 +461,9 @@ class OpendalFileSystem(AsyncFileSystem):
             raise ValueError
 
         path = self._normalize_path(path)
+
+        if mode == "xb" and await self.async_fs.exists(path):
+            raise FileExistsError(path)
 
         size = None
         if mode == "rb":
@@ -419,6 +496,24 @@ class OpendalFileSystem(AsyncFileSystem):
             return info.last_modified
 
     modified = sync_wrapper(_modified)
+
+    def checksum(self, path: str) -> int:
+        """Return the backend ETag as an fsspec checksum token."""
+        path = self._normalize_path(path)
+        info = self.info(path, refresh=True)
+        if info["type"] == "directory":
+            return int(tokenize(info), 16)
+
+        etag = info.get("etag")
+        if etag is not None:
+            # OpenDAL preserves backend ETags as opaque strings.  Tokenization
+            # only adapts that value to fsspec's integer checksum interface.
+            return int(tokenize(etag), 16)
+
+        # Do not turn a metadata lookup into an unbounded object download.
+        # Backends without an ETag cannot provide a cheap checksum token, while
+        # fsspec's cheaper, best-effort ukey remains available.
+        raise NotImplementedError(f"{self.scheme} does not expose ETags for checksums")
 
     def mv(
         self,
@@ -460,7 +555,12 @@ class OpendalFileSystem(AsyncFileSystem):
             return
 
         stripped = self._normalize_path(path).rstrip("/")
-        self.dircache.pop(stripped, None)
+        current = stripped
+        while True:
+            self.dircache.pop(current, None)
+            if not current:
+                break
+            current = self._parent(current)
         prefix = stripped + "/"
         for key in list(self.dircache):
             if key.startswith(prefix):
