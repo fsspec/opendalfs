@@ -29,7 +29,7 @@ def minio_server():
         time.sleep(1)
 
     raise pytest.skip.Exception(
-        "MinIO is not available. Please start it with: docker-compose -f tests/docker/docker-compose.yml up -d"
+        "MinIO is not available. Run the integration suite with: make integration"
     )
 
 

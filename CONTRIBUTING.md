@@ -5,42 +5,55 @@ opendalfs is a Python package built on the Apache OpenDAL Python bindings.
 ## Development Setup
 
 1. Clone the repository:
+
 ```shell
 git clone https://github.com/fsspec/opendalfs.git
 cd opendalfs
 ```
 
-2. Create a virtual environment and install dependencies:
+2. Install the locked development environment:
+
 ```shell
-uv venv
-uv sync --locked --all-extras --dev
+make install
 ```
 
 ### Dependency Groups
 
 The project uses several dependency groups:
-- `dev`: Development tools (ruff)
+
+- `dev`: Development tools (Ruff, ty, and prek)
 - `test`: Testing tools (pytest, pytest-asyncio, pytest-cov, s3fs, boto3)
 - `bench`: Benchmark tools (pyarrow, s3fs, boto3)
 - `all`: All dependencies combined
 
-Install specific groups as needed:
-```shell
-pip install -e ".[dev,test]"  # For development and testing
-pip install -e ".[bench]"     # For benchmarks
-```
+Run `make help` to list the supported development commands.
 
 ## Testing
 
-### Prerequisites
+### Unit Tests
 
-1. For S3 tests, you need MinIO running locally:
+Run tests that do not require S3:
 
 ```shell
-docker compose -f tests/docker/docker-compose.yml up -d
+make unit
 ```
 
-Note: The S3 tests use these default settings:
+Pass additional pytest options through `PYTEST_ARGS`, for example:
+
+```shell
+make unit PYTEST_ARGS="-x"
+```
+
+### Integration Tests
+
+Run the complete test suite with the repository's root `docker-compose.yml`:
+
+```shell
+make integration
+```
+
+This command starts MinIO, waits for it to become healthy, runs the tests, and
+stops MinIO afterward. The S3 tests use these default settings:
 
 - Endpoint: `http://localhost:9000`
 - Region: `us-east-1`
@@ -48,24 +61,30 @@ Note: The S3 tests use these default settings:
 - Secret Key: `minioadmin`
 - Bucket: `test-bucket`
 
-### Running Tests
-
-1. Run the test suite:
+To run the complete suite against services you already manage, use:
 
 ```shell
-pytest -v
+make test
 ```
 
-2. After testing, stop MinIO:
+## Benchmarks
+
+Run the benchmark against the same root Compose service:
 
 ```shell
-docker compose -f tests/docker/docker-compose.yml down
+make bench
 ```
 
-## Code Style
+Pass benchmark options through `BENCH_ARGS`. The service remains available for
+repeated runs; stop it with `make bench-down` when finished.
 
-- Format and lint: `ruff format .`
-- Check: `ruff check .`
+## Code Quality
+
+Run the same formatting, linting, type, and pre-commit checks used by CI:
+
+```shell
+make check
+```
 
 ## CI/CD
 
