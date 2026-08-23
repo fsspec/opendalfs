@@ -15,16 +15,17 @@ def _file_behavior(fs, *, url: str, path: str, name_prefix: str) -> dict:
     }
 
 
-def test_file_url_behavior_matches_s3fs(s3_fs, s3fs_fs):
+def test_file_url_behavior_matches_s3fs(s3_fs, s3fs_fs, s3_config):
+    bucket = s3_config.bucket
     expected = _file_behavior(
         s3fs_fs,
-        url="s3://test-bucket/parity/file.txt",
-        path="test-bucket/parity/file.txt",
-        name_prefix="test-bucket/",
+        url=f"s3://{bucket}/parity/file.txt",
+        path=f"{bucket}/parity/file.txt",
+        name_prefix=f"{bucket}/",
     )
     actual = _file_behavior(
         s3_fs,
-        url="opendal+s3://test-bucket/parity/file.txt",
+        url=f"opendal+s3://{bucket}/parity/file.txt",
         path="parity/file.txt",
         name_prefix="",
     )

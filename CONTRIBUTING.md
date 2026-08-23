@@ -61,6 +61,10 @@ stops MinIO afterward. The S3 tests use these default settings:
 - Secret Key: `minioadmin`
 - Bucket: `test-bucket`
 
+Override them with `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_REGION`,
+`OPENDAL_S3_BUCKET`, `OPENDAL_S3_ACCESS_KEY_ID`, and
+`OPENDAL_S3_SECRET_ACCESS_KEY`. Compose and pytest read the same values.
+
 To run the complete suite against services you already manage, use:
 
 ```shell

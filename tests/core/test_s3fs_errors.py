@@ -14,8 +14,9 @@ def _missing_file_behavior(fs, *, url: str) -> dict[str, str]:
     return failures
 
 
-def test_missing_file_behavior_matches_s3fs(s3_fs, s3fs_fs):
-    expected = _missing_file_behavior(s3fs_fs, url="s3://test-bucket/missing-file")
-    actual = _missing_file_behavior(s3_fs, url="opendal+s3://test-bucket/missing-file")
+def test_missing_file_behavior_matches_s3fs(s3_fs, s3fs_fs, s3_config):
+    bucket = s3_config.bucket
+    expected = _missing_file_behavior(s3fs_fs, url=f"s3://{bucket}/missing-file")
+    actual = _missing_file_behavior(s3_fs, url=f"opendal+s3://{bucket}/missing-file")
 
     assert actual == expected

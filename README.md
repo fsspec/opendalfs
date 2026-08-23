@@ -75,7 +75,9 @@ make bench BENCH_ARGS="--sizes 16,32,64 --files 4 --workers 4"
 ```
 
 Configure MinIO access via `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`,
-`OPENDAL_S3_ACCESS_KEY_ID`, and `OPENDAL_S3_SECRET_ACCESS_KEY`.
+`OPENDAL_S3_REGION`, `OPENDAL_S3_ACCESS_KEY_ID`, and
+`OPENDAL_S3_SECRET_ACCESS_KEY`. Compose, tests, and benchmarks read the same
+values.
 
 The benchmark target starts MinIO from the root `docker-compose.yml`. Stop it
 when you finish:

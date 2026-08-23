@@ -11,6 +11,13 @@ on:
 permissions:
   contents: read
 
+env:
+  OPENDAL_S3_ENDPOINT: http://127.0.0.1:9000
+  OPENDAL_S3_REGION: us-east-1
+  OPENDAL_S3_BUCKET: test-bucket
+  OPENDAL_S3_ACCESS_KEY_ID: minioadmin
+  OPENDAL_S3_SECRET_ACCESS_KEY: minioadmin
+
 jobs:
   quality:
     name: Quality
@@ -73,19 +80,10 @@ jobs:
       - name: Upgrade contract dependencies
         run: uv pip install --upgrade fsspec s3fs
 
-      - name: Start MinIO
-        run: docker compose up --detach --wait
-
       - name: Run contract tests
         env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
           UV_NO_SYNC: "1"
-        run: uv run pytest -v tests/core/test_fsspec_abstract.py
-
-      - name: Stop MinIO
-        if: always()
-        run: docker compose down --volumes
+        run: make integration PYTEST_ARGS=tests/core/test_fsspec_abstract.py
 
   integration:
     name: MinIO integration
@@ -104,11 +102,4 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Run integration tests
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
         run: make integration
-
-      - name: Stop MinIO
-        if: always()
-        run: docker compose down --volumes
