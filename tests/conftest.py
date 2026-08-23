@@ -1,8 +1,10 @@
+import asyncio
+
+import boto3
 import pytest
+
 from opendalfs import OpendalFileSystem
 from opendalfs.registry import OpendalS3FileSystem
-import boto3
-import asyncio
 
 
 @pytest.fixture(scope="session")
@@ -26,7 +28,7 @@ def minio_server():
         retries -= 1
         time.sleep(1)
 
-    pytest.skip(
+    raise pytest.skip.Exception(
         "MinIO is not available. Please start it with: docker-compose -f tests/docker/docker-compose.yml up -d"
     )
 
@@ -34,7 +36,7 @@ def minio_server():
 @pytest.fixture
 def s3_fs(minio_server):
     """Create an S3 filesystem for testing sync operations."""
-    from .utils.s3 import create_test_bucket, cleanup_bucket, verify_bucket
+    from .utils.s3 import cleanup_bucket, create_test_bucket, verify_bucket
 
     fs = OpendalS3FileSystem(
         bucket="test-bucket",
@@ -101,7 +103,7 @@ def any_fs(request):
 @pytest.fixture(scope="function")
 async def event_loop():
     """Create an instance of the default event loop for each test case."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 

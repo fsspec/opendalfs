@@ -47,6 +47,28 @@ bench = [
 # All development dependencies
 all = ["opendalfs[dev,test,bench]"]
 
+[dependency-groups]
+bench = [
+    "boto3>=1.37.3",
+    "pyarrow>=22.0.0",
+    "s3fs>=2025.5.1",
+]
+test = [
+    "boto3>=1.37.3",
+    "pyarrow>=22.0.0",
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.1.1",
+    "s3fs>=2025.5.1",
+]
+dev = [
+    { include-group = "bench" },
+    { include-group = "test" },
+    "prek>=0.4.14",
+    "ruff>=0.16.4",
+    "ty>=0.0.74",
+]
+
 [tool.setuptools]
 packages = ["opendalfs"]
 package-dir = {"" = "."}
@@ -57,3 +79,46 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 opendalfs = ["py.typed"]
+
+[tool.ty.environment]
+python = "./.venv"
+python-version = "3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "YTT",
+    "S",
+    "B",
+    "A",
+    "C4",
+    "T10",
+    "SIM",
+    "I",
+    "C90",
+    "E",
+    "W",
+    "F",
+    "PGH",
+    "UP",
+    "RUF",
+    "TRY",
+]
+ignore = [
+    "E501",
+    "E731",
+    "TRY003",
+    "S603",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S106"]
+
+[tool.ruff.format]
+preview = true
