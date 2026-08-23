@@ -73,8 +73,14 @@ The benchmark script compares Arrow direct, opendalfs (fsspec), and s3fs (fsspec
 
 ```bash
 just install
-just bench --sizes 16,32,64 --files 4 --workers 4
+just bench --profile defaults
+just bench --profile controlled
 ```
+
+The `defaults` profile keeps each backend's normal settings. The `controlled`
+profile uses the same worker count and an 8 MiB write chunk where the backend
+supports it. Each run includes a warmup, rotates backend order, reports median
+throughput, and removes its objects when it finishes.
 
 Configure MinIO access via `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`,
 `OPENDAL_S3_REGION`, `OPENDAL_S3_ACCESS_KEY_ID`, and
@@ -92,11 +98,8 @@ For profiling, you can install a tool with `uv` (for example `py-spy`) and run:
 
 ```bash
 uv tool install py-spy
-uv tool run py-spy record -o bench.svg -- python bench/bench_read_write.py --sizes 16,32,64 --files 4 --workers 4
+uv tool run py-spy record -o bench.svg -- python bench/bench_read_write.py --profile controlled
 ```
-
-High write concurrency can stall on some systems. If runs time out, reduce
-`--fsspec-workers`.
 
 ## Status
 
