@@ -25,13 +25,48 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Start MinIO server
-        run: |
-          docker compose -f tests/docker/docker-compose.yml up -d
-          # Wait for MinIO to be healthy
-          sleep 10
+        run: docker compose up --detach --wait
 
       - name: Run tests
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
         run: uv run pytest -v --cov=opendalfs --cov-report=xml
+
+      - name: Stop MinIO server
+        if: always()
+        run: docker compose down --volumes
+
+  latest-fsspec-contract:
+    name: Contract Tests (latest fsspec)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install the locked project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Upgrade contract dependencies
+        run: uv pip install --upgrade fsspec s3fs
+
+      - name: Start MinIO server
+        run: docker compose up --detach --wait
+
+      - name: Run contract tests
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+          UV_NO_SYNC: "1"
+        run: uv run pytest -v tests/core/test_fsspec_abstract.py
+
+      - name: Stop MinIO server
+        if: always()
+        run: docker compose down --volumes
