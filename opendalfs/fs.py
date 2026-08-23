@@ -1,23 +1,24 @@
 from __future__ import annotations
 
 import errno
-from glob import has_magic
+import logging
 import os
+from glob import has_magic
 from typing import Any
 
 from fsspec.asyn import AsyncFileSystem, sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.implementations.local import trailing_sep
 from fsspec.utils import stringify_path, tokenize
-import logging
 from opendal import AsyncOperator, Operator
+from opendal.exceptions import AlreadyExists, ConditionNotMatch, NotFound, Unsupported
+from opendal.layers import RetryLayer
+
 from .file import (
     OpendalAsyncBufferedFile,
     OpendalBufferedFile,
     _exclusive_write_options,
 )
-from opendal.exceptions import AlreadyExists, ConditionNotMatch, NotFound, Unsupported
-from opendal.layers import RetryLayer
 
 logger = logging.getLogger("opendalfs")
 
@@ -323,23 +324,25 @@ class OpendalFileSystem(AsyncFileSystem):
             return await self._read(path)
 
         size = None
+        negative_index_size = 0
         if (start is not None and start < 0) or (end is not None and end < 0):
             try:
                 info = await self.async_fs.stat(path)
             except NotFound as err:
                 raise FileNotFoundError(path) from err
             size = info.content_length
+            negative_index_size = size
 
         if start is None:
             start = 0
         elif start < 0:
-            start = max(0, size + start)
+            start = max(0, negative_index_size + start)
 
         if end is None:
             if size is not None:
                 end = size
         elif end < 0:
-            end = size + end
+            end = negative_index_size + end
 
         if end is None:
             if start == 0:
@@ -380,13 +383,13 @@ class OpendalFileSystem(AsyncFileSystem):
         self,
         lpath,
         rpath,
-        callback=DEFAULT_CALLBACK,
         mode="overwrite",
         block_size: int | None = None,
         **kwargs,
     ) -> None:
         """Upload a local file to a remote path."""
         block_size = self.blocksize if block_size is None else block_size
+        callback = kwargs.pop("callback", DEFAULT_CALLBACK)
         lpath = os.fspath(lpath)
         if os.path.isdir(lpath):
             return
@@ -414,11 +417,16 @@ class OpendalFileSystem(AsyncFileSystem):
         """Write bytes into file (async implementation)."""
         path = self._normalize_path(path)
         exclusive = mode == "create"
-        write_options = _exclusive_write_options(self.async_fs, exclusive)
-        if exclusive and not write_options and await self._exists(path):
+        supports_exclusive_write = bool(
+            _exclusive_write_options(self.async_fs, exclusive)
+        )
+        if exclusive and not supports_exclusive_write and await self._exists(path):
             raise FileExistsError(path)
         try:
-            await self.async_fs.write(path, value, **write_options)
+            if supports_exclusive_write:
+                await self.async_fs.write(path, value, if_not_exists=True)
+            else:
+                await self.async_fs.write(path, value)
         except (AlreadyExists, ConditionNotMatch) as err:
             raise FileExistsError(path) from err
         self.invalidate_cache(self._parent(path.rstrip("/")))
@@ -537,13 +545,14 @@ class OpendalFileSystem(AsyncFileSystem):
                 dst = dst.rstrip("/") + "/" + base
             try:
                 self.operator.rename(src, dst)
-                self.invalidate_cache(self._parent(src.rstrip("/")))
-                self.invalidate_cache(self._parent(dst.rstrip("/")))
-                return None
             except NotFound as err:
                 raise FileNotFoundError(src) from err
             except Unsupported:
                 pass
+            else:
+                self.invalidate_cache(self._parent(src.rstrip("/")))
+                self.invalidate_cache(self._parent(dst.rstrip("/")))
+                return None
         return super().mv(
             path1, path2, recursive=recursive, maxdepth=maxdepth, **kwargs
         )

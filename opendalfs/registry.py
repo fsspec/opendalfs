@@ -5,7 +5,6 @@ from urllib.parse import parse_qsl, urlsplit
 
 from .fs import OpendalFileSystem
 
-
 _DEFAULT_CONTAINER_KEY_BY_SERVICE: dict[str, str] = {
     "azblob": "container",
 }
@@ -21,7 +20,7 @@ def _parse_opendal_url(url: str) -> tuple[str | None, str | None, str, dict[str,
     scheme = parsed.scheme or None
     host = parsed.hostname or parsed.netloc or None
     path = (parsed.path or "").lstrip("/")
-    query = {k: v for k, v in parse_qsl(parsed.query, keep_blank_values=True)}
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
     return scheme, host, path, query
 
 
@@ -34,12 +33,12 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         kwargs.pop("scheme", None)
         super().__init__(type(self).service, *args, **kwargs)
 
-    def unstrip_protocol(self, path: str) -> str:
-        scheme, _host, _stripped, _query = _parse_opendal_url(path)
+    def unstrip_protocol(self, name: str) -> str:
+        scheme, _host, _stripped, _query = _parse_opendal_url(name)
         if scheme == self.protocol:
-            return path
+            return name
 
-        stripped = self._strip_protocol(path)
+        stripped = self._strip_protocol(name)
         container = self.storage_options.get(self.container_key)
         if not container:
             return super().unstrip_protocol(stripped)
