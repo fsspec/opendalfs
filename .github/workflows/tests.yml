@@ -5,10 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  integration-tests:
-    name: Integration Tests
+  quality:
+    name: Quality
     runs-on: ubuntu-24.04
 
     steps:
@@ -17,28 +22,40 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-
-      - name: Set up Python
-        run: uv python install
+        with:
+          python-version: "3.12"
 
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Start MinIO server
-        run: docker compose up --detach --wait
+      - name: Run quality checks
+        run: make check
 
-      - name: Run tests
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        run: uv run pytest -v --cov=opendalfs --cov-report=xml
+  unit:
+    name: Unit (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
 
-      - name: Stop MinIO server
-        if: always()
-        run: docker compose down --volumes
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  latest-fsspec-contract:
-    name: Contract Tests (latest fsspec)
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run unit tests
+        run: make unit
+
+  latest-contract:
+    name: Contract (latest fsspec)
     runs-on: ubuntu-24.04
 
     steps:
@@ -47,9 +64,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-
-      - name: Set up Python
-        run: uv python install
+        with:
+          python-version: "3.12"
 
       - name: Install the locked project
         run: uv sync --locked --all-extras --dev
@@ -57,7 +73,7 @@ jobs:
       - name: Upgrade contract dependencies
         run: uv pip install --upgrade fsspec s3fs
 
-      - name: Start MinIO server
+      - name: Start MinIO
         run: docker compose up --detach --wait
 
       - name: Run contract tests
@@ -67,6 +83,32 @@ jobs:
           UV_NO_SYNC: "1"
         run: uv run pytest -v tests/core/test_fsspec_abstract.py
 
-      - name: Stop MinIO server
+      - name: Stop MinIO
+        if: always()
+        run: docker compose down --volumes
+
+  integration:
+    name: MinIO integration
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run integration tests
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        run: make integration
+
+      - name: Stop MinIO
         if: always()
         run: docker compose down --volumes
