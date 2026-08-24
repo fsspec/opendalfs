@@ -64,7 +64,6 @@ test = [
 dev = [
     { include-group = "bench" },
     { include-group = "test" },
-    "prek>=0.4.14",
     "ruff>=0.16.4",
     "ty>=0.0.74",
 ]

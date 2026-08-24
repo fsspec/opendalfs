@@ -20,7 +20,7 @@ def minio_server(s3_config):
         get_s3_client(s3_config).list_buckets()
     except EndpointConnectionError:
         raise pytest.skip.Exception(
-            "S3 is unavailable; run the integration suite with make integration"
+            "S3 is unavailable; run the integration suite with just integration"
         ) from None
 
 

@@ -42,8 +42,11 @@ pip install opendalfs
 
 ### Development Installation
 
+Install [uv](https://docs.astral.sh/uv/) and
+[just](https://just.systems/man/en/packages.html), then run:
+
 ```bash
-make install
+just install
 ```
 
 ## Development Setup
@@ -53,14 +56,13 @@ This project uses:
 - Python 3.12+ for the Python interface
 - ruff for code formatting and linting
 - ty for type checking
-- prek for pre-commit checks
 - pytest for testing
 
 Run the local checks and unit tests with:
 
 ```bash
-make check
-make unit
+just check
+just unit
 ```
 
 For development setup and guidelines, see our [Contributing Guide](https://github.com/fsspec/opendalfs/blob/main/CONTRIBUTING.md).
@@ -70,8 +72,8 @@ For development setup and guidelines, see our [Contributing Guide](https://githu
 The benchmark script compares Arrow direct, opendalfs (fsspec), and s3fs (fsspec) on MinIO.
 
 ```bash
-make install
-make bench BENCH_ARGS="--sizes 16,32,64 --files 4 --workers 4"
+just install
+just bench --sizes 16,32,64 --files 4 --workers 4
 ```
 
 Configure MinIO access via `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`,
@@ -83,7 +85,7 @@ The benchmark target starts MinIO from the root `docker-compose.yml`. Stop it
 when you finish:
 
 ```bash
-make bench-down
+just bench-down
 ```
 
 For profiling, you can install a tool with `uv` (for example `py-spy`) and run:

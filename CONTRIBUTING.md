@@ -11,22 +11,24 @@ git clone https://github.com/fsspec/opendalfs.git
 cd opendalfs
 ```
 
-2. Install the locked development environment:
+2. Install [uv](https://docs.astral.sh/uv/) and
+   [just](https://just.systems/man/en/packages.html), then install the locked
+   development environment:
 
 ```shell
-make install
+just install
 ```
 
 ### Dependency Groups
 
 The project uses several dependency groups:
 
-- `dev`: Development tools (Ruff, ty, and prek)
+- `dev`: Development tools (Ruff and ty)
 - `test`: Testing tools (pytest, pytest-asyncio, pytest-cov, s3fs, boto3)
 - `bench`: Benchmark tools (pyarrow, s3fs, boto3)
 - `all`: All dependencies combined
 
-Run `make help` to list the supported development commands.
+Run `just --list` to list the supported development commands.
 
 ## Testing
 
@@ -35,13 +37,13 @@ Run `make help` to list the supported development commands.
 Run tests that do not require S3:
 
 ```shell
-make unit
+just unit
 ```
 
-Pass additional pytest options through `PYTEST_ARGS`, for example:
+Pass additional pytest options as recipe arguments, for example:
 
 ```shell
-make unit PYTEST_ARGS="-x"
+just unit -x
 ```
 
 ### Integration Tests
@@ -49,7 +51,7 @@ make unit PYTEST_ARGS="-x"
 Run the complete test suite with the repository's root `docker-compose.yml`:
 
 ```shell
-make integration
+just integration
 ```
 
 This command starts MinIO, waits for it to become healthy, runs the tests, and
@@ -68,7 +70,7 @@ Override them with `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_REGION`,
 To run the complete suite against services you already manage, use:
 
 ```shell
-make test
+just test
 ```
 
 ## Benchmarks
@@ -76,18 +78,18 @@ make test
 Run the benchmark against the same root Compose service:
 
 ```shell
-make bench
+just bench
 ```
 
-Pass benchmark options through `BENCH_ARGS`. The service remains available for
-repeated runs; stop it with `make bench-down` when finished.
+Pass benchmark options as recipe arguments. The service remains available for
+repeated runs; stop it with `just bench-down` when finished.
 
 ## Code Quality
 
-Run the same formatting, linting, type, and pre-commit checks used by CI:
+Run the same formatting, linting, and type checks used by CI:
 
 ```shell
-make check
+just check
 ```
 
 ## CI/CD

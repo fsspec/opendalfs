@@ -32,11 +32,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
       - name: Run quality checks
-        run: make check
+        run: just check
 
   unit:
     name: Unit (Python ${{ matrix.python-version }})
@@ -55,11 +60,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
       - name: Run unit tests
-        run: make unit
+        run: just unit
 
   latest-contract:
     name: Contract (latest fsspec)
@@ -74,6 +84,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
       - name: Install the locked project
         run: uv sync --locked --all-extras --dev
 
@@ -83,7 +98,7 @@ jobs:
       - name: Run contract tests
         env:
           UV_NO_SYNC: "1"
-        run: make integration PYTEST_ARGS=tests/core/test_fsspec_abstract.py
+        run: just integration tests/core/test_fsspec_abstract.py
 
   integration:
     name: MinIO integration
@@ -98,8 +113,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
       - name: Run integration tests
-        run: make integration
+        run: just integration
