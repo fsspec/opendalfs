@@ -5,42 +5,57 @@ opendalfs is a Python package built on the Apache OpenDAL Python bindings.
 ## Development Setup
 
 1. Clone the repository:
+
 ```shell
 git clone https://github.com/fsspec/opendalfs.git
 cd opendalfs
 ```
 
-2. Create a virtual environment and install dependencies:
+2. Install [uv](https://docs.astral.sh/uv/) and
+   [just](https://just.systems/man/en/packages.html), then install the locked
+   development environment:
+
 ```shell
-uv venv
-uv sync --locked --all-extras --dev
+just install
 ```
 
 ### Dependency Groups
 
 The project uses several dependency groups:
-- `dev`: Development tools (ruff)
+
+- `dev`: Development tools (Ruff and ty)
 - `test`: Testing tools (pytest, pytest-asyncio, pytest-cov, s3fs, boto3)
 - `bench`: Benchmark tools (pyarrow, s3fs, boto3)
 - `all`: All dependencies combined
 
-Install specific groups as needed:
-```shell
-pip install -e ".[dev,test]"  # For development and testing
-pip install -e ".[bench]"     # For benchmarks
-```
+Run `just --list` to list the supported development commands.
 
 ## Testing
 
-### Prerequisites
+### Unit Tests
 
-1. For S3 tests, you need MinIO running locally:
+Run tests that do not require S3:
 
 ```shell
-docker compose -f tests/docker/docker-compose.yml up -d
+just unit
 ```
 
-Note: The S3 tests use these default settings:
+Pass additional pytest options as recipe arguments, for example:
+
+```shell
+just unit -x
+```
+
+### Integration Tests
+
+Run the complete test suite with the repository's root `docker-compose.yml`:
+
+```shell
+just integration
+```
+
+This command starts MinIO, waits for it to become healthy, runs the tests, and
+stops MinIO afterward. The S3 tests use these default settings:
 
 - Endpoint: `http://localhost:9000`
 - Region: `us-east-1`
@@ -48,24 +63,34 @@ Note: The S3 tests use these default settings:
 - Secret Key: `minioadmin`
 - Bucket: `test-bucket`
 
-### Running Tests
+Override them with `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_REGION`,
+`OPENDAL_S3_BUCKET`, `OPENDAL_S3_ACCESS_KEY_ID`, and
+`OPENDAL_S3_SECRET_ACCESS_KEY`. Compose and pytest read the same values.
 
-1. Run the test suite:
-
-```shell
-pytest -v
-```
-
-2. After testing, stop MinIO:
+To run the complete suite against services you already manage, use:
 
 ```shell
-docker compose -f tests/docker/docker-compose.yml down
+just test
 ```
 
-## Code Style
+## Benchmarks
 
-- Format and lint: `ruff format .`
-- Check: `ruff check .`
+Run the benchmark against the same root Compose service:
+
+```shell
+just bench
+```
+
+Pass benchmark options as recipe arguments. The service remains available for
+repeated runs; stop it with `just bench-down` when finished.
+
+## Code Quality
+
+Run the same formatting, linting, and type checks used by CI:
+
+```shell
+just check
+```
 
 ## CI/CD
 

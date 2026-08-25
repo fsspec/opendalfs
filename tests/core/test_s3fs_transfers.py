@@ -17,15 +17,18 @@ def _transfer_behavior(fs, *, url: str, tmp_path) -> dict:
     }
 
 
-def test_file_transfer_and_modified_behavior_matches_s3fs(s3_fs, s3fs_fs, tmp_path):
+def test_file_transfer_and_modified_behavior_matches_s3fs(
+    s3_fs, s3fs_fs, s3_config, tmp_path
+):
+    bucket = s3_config.bucket
     expected = _transfer_behavior(
         s3fs_fs,
-        url="s3://test-bucket/transfer/reference.txt",
+        url=f"s3://{bucket}/transfer/reference.txt",
         tmp_path=tmp_path,
     )
     actual = _transfer_behavior(
         s3_fs,
-        url="opendal+s3://test-bucket/transfer/actual.txt",
+        url=f"opendal+s3://{bucket}/transfer/actual.txt",
         tmp_path=tmp_path,
     )
 

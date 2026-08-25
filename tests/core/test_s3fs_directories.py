@@ -30,16 +30,17 @@ def _directory_behavior(fs, *, url: str, path: str, name_prefix: str) -> dict:
     }
 
 
-def test_implicit_directory_behavior_matches_s3fs(s3_fs, s3fs_fs):
+def test_implicit_directory_behavior_matches_s3fs(s3_fs, s3fs_fs, s3_config):
+    bucket = s3_config.bucket
     expected = _directory_behavior(
         s3fs_fs,
-        url="s3://test-bucket/parity-dir",
-        path="test-bucket/parity-dir",
-        name_prefix="test-bucket/",
+        url=f"s3://{bucket}/parity-dir",
+        path=f"{bucket}/parity-dir",
+        name_prefix=f"{bucket}/",
     )
     actual = _directory_behavior(
         s3_fs,
-        url="opendal+s3://test-bucket/parity-dir",
+        url=f"opendal+s3://{bucket}/parity-dir",
         path="parity-dir",
         name_prefix="",
     )

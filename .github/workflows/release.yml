@@ -9,8 +9,13 @@ permissions:
   contents: read
 
 jobs:
+  validation:
+    name: Validate release
+    uses: ./.github/workflows/tests.yml
+
   build-package:
     name: Build and inspect package
+    needs: validation
     runs-on: ubuntu-latest
 
     steps:

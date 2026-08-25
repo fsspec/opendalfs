@@ -30,9 +30,8 @@ def test_open_write_chunked(any_fs):
 def test_open_exclusive_create(any_fs):
     any_fs.pipe_file("exists.txt", b"x")
 
-    with pytest.raises(FileExistsError):
-        with any_fs.open("exists.txt", "xb") as f:
-            f.write(b"y")
+    with pytest.raises(FileExistsError), any_fs.open("exists.txt", "xb") as f:
+        f.write(b"y")
 
 
 def test_failed_open_does_not_emit_an_unraisable_error(memory_fs, recwarn):

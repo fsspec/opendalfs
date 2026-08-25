@@ -5,10 +5,22 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENDAL_S3_ENDPOINT: http://127.0.0.1:9000
+  OPENDAL_S3_REGION: us-east-1
+  OPENDAL_S3_BUCKET: test-bucket
+  OPENDAL_S3_ACCESS_KEY_ID: minioadmin
+  OPENDAL_S3_SECRET_ACCESS_KEY: minioadmin
 
 jobs:
-  integration-tests:
-    name: Integration Tests
+  quality:
+    name: Quality
     runs-on: ubuntu-24.04
 
     steps:
@@ -17,21 +29,97 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
 
-      - name: Set up Python
-        run: uv python install
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
 
       - name: Install the project
-        run: uv sync --locked --all-extras --dev
+        run: just install
 
-      - name: Start MinIO server
-        run: |
-          docker compose -f tests/docker/docker-compose.yml up -d
-          # Wait for MinIO to be healthy
-          sleep 10
+      - name: Run quality checks
+        run: just check
 
-      - name: Run tests
+  unit:
+    name: Unit (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
+      - name: Install the project
+        run: just install
+
+      - name: Run unit tests
+        run: just unit
+
+  latest-contract:
+    name: Contract (latest fsspec)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
+      - name: Install the locked project
+        run: just install
+
+      - name: Upgrade contract dependencies
+        run: uv pip install --upgrade fsspec s3fs
+
+      - name: Run contract tests
         env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        run: uv run pytest -v --cov=opendalfs --cov-report=xml
+          UV_NO_SYNC: "1"
+        run: just integration tests/core/test_fsspec_abstract.py
+
+  integration:
+    name: MinIO integration
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
+      - name: Install the project
+        run: just install
+
+      - name: Run integration tests
+        run: just integration

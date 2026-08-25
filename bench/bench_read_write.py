@@ -31,7 +31,9 @@ def _parse_sizes(value: str) -> list[int]:
 
 
 def _load_config(args) -> dict[str, str]:
-    bucket = args.bucket or _env_first("OPENDAL_S3_BUCKET", "AWS_S3_BUCKET") or "opendal"
+    bucket = (
+        args.bucket or _env_first("OPENDAL_S3_BUCKET", "AWS_S3_BUCKET") or "opendal"
+    )
     region = (
         args.region
         or _env_first("OPENDAL_S3_REGION", "AWS_REGION", "AWS_DEFAULT_REGION")
@@ -124,7 +126,9 @@ def _run_benchmark(
     return write_s, read_s
 
 
-def _report(label: str, size_mb: int, files: int, write_s: float, read_s: float) -> None:
+def _report(
+    label: str, size_mb: int, files: int, write_s: float, read_s: float
+) -> None:
     total_mb = size_mb * files
     write_mbps = total_mb / write_s if write_s else 0.0
     read_mbps = total_mb / read_s if read_s else 0.0
@@ -141,7 +145,7 @@ def _run_arrow_direct(config: dict[str, str], args, size_mb: int) -> None:
         endpoint_override=config["endpoint"],
         allow_bucket_creation=True,
     )
-    base = f'{config["bucket"]}/{args.prefix}-{size_mb}mb-{uuid4()}'
+    base = f"{config['bucket']}/{args.prefix}-{size_mb}mb-{uuid4()}"
     write_s, read_s = _run_benchmark(fs, base, size_mb, args.files, args.workers)
     _report("arrow-direct", size_mb, args.files, write_s, read_s)
 
@@ -164,7 +168,7 @@ def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> N
         secret_access_key=config["secret_access_key"],
     )
     fs = pafs.PyFileSystem(pafs.FSSpecHandler(backend))
-    base = f'{args.prefix}-{size_mb}mb-{uuid4()}'
+    base = f"{args.prefix}-{size_mb}mb-{uuid4()}"
     write_s, read_s = _run_benchmark(
         fs,
         base,
@@ -193,7 +197,7 @@ def _run_arrow_fsspec_s3(config: dict[str, str], args, size_mb: int) -> None:
         config_kwargs={"s3": {"addressing_style": "path"}},
     )
     fs = pafs.PyFileSystem(pafs.FSSpecHandler(backend))
-    base = f'{config["bucket"]}/{args.prefix}-{size_mb}mb-{uuid4()}'
+    base = f"{config['bucket']}/{args.prefix}-{size_mb}mb-{uuid4()}"
     write_s, read_s = _run_benchmark(
         fs,
         base,

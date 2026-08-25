@@ -1,78 +1,58 @@
+import asyncio
+
 import pytest
+from botocore.exceptions import EndpointConnectionError
+
 from opendalfs import OpendalFileSystem
 from opendalfs.registry import OpendalS3FileSystem
-import boto3
-import asyncio
+from tests.utils.s3 import S3Config, cleanup_bucket, create_test_bucket, get_s3_client
 
 
 @pytest.fixture(scope="session")
-def minio_server():
-    """Ensure MinIO server is available for testing."""
-    import socket
-    import time
+def s3_config():
+    return S3Config.from_env()
 
-    # Check if MinIO is accessible
-    retries = 3
-    while retries > 0:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(("localhost", 9000))
-            if result == 0:
-                sock.close()
-                return  # MinIO is available
-        except Exception as e:
-            print(f"DEBUG: Error connecting to MinIO: {e}, retrying...")
-            pass
-        retries -= 1
-        time.sleep(1)
 
-    pytest.skip(
-        "MinIO is not available. Please start it with: docker-compose -f tests/docker/docker-compose.yml up -d"
-    )
+@pytest.fixture(scope="session")
+def minio_server(s3_config):
+    """Skip S3 tests when their externally managed service is unavailable."""
+    try:
+        get_s3_client(s3_config).list_buckets()
+    except EndpointConnectionError:
+        raise pytest.skip.Exception(
+            "S3 is unavailable; run the integration suite with just integration"
+        ) from None
 
 
 @pytest.fixture
-def s3_fs(minio_server):
+def s3_fs(minio_server, s3_config):
     """Create an S3 filesystem for testing sync operations."""
-    from .utils.s3 import create_test_bucket, cleanup_bucket, verify_bucket
-
     fs = OpendalS3FileSystem(
-        bucket="test-bucket",
-        endpoint="http://localhost:9000",
-        region="us-east-1",
-        access_key_id="minioadmin",
-        secret_access_key="minioadmin",
+        bucket=s3_config.bucket,
+        endpoint=s3_config.endpoint,
+        region=s3_config.region,
+        access_key_id=s3_config.access_key_id,
+        secret_access_key=s3_config.secret_access_key,
         asynchronous=False,
     )
 
-    create_test_bucket()
-    verify_bucket()
-
-    # Verify we can write directly with boto3
-    s3 = boto3.client(
-        "s3",
-        endpoint_url="http://localhost:9000",
-        aws_access_key_id="minioadmin",
-        aws_secret_access_key="minioadmin",
-    )
-    s3.put_object(Bucket="test-bucket", Key="test.txt", Body=b"test")
-    print("DEBUG: Wrote test file directly with boto3")
+    create_test_bucket(s3_config)
 
     yield fs
-    cleanup_bucket()
+    cleanup_bucket(s3_config)
 
 
 @pytest.fixture
-def s3fs_fs(s3_fs):
+def s3fs_fs(s3_fs, s3_config):
     """Create the s3fs reference implementation against the same bucket."""
     from s3fs import S3FileSystem
 
     return S3FileSystem(
-        key="minioadmin",
-        secret="minioadmin",
+        key=s3_config.access_key_id,
+        secret=s3_config.secret_access_key,
         client_kwargs={
-            "endpoint_url": "http://localhost:9000",
-            "region_name": "us-east-1",
+            "endpoint_url": s3_config.endpoint,
+            "region_name": s3_config.region,
         },
         use_listings_cache=False,
         skip_instance_cache=True,
@@ -101,7 +81,7 @@ def any_fs(request):
 @pytest.fixture(scope="function")
 async def event_loop():
     """Create an instance of the default event loop for each test case."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
