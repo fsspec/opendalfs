@@ -282,9 +282,15 @@ class OpendalFileSystem(AsyncFileSystem):
         return await self._read(path, offset=start, size=length)
 
     async def _get_file(
-        self, rpath, lpath, callback=DEFAULT_CALLBACK, **kwargs
+        self,
+        rpath,
+        lpath,
+        callback=DEFAULT_CALLBACK,
+        block_size: int | None = None,
+        **kwargs,
     ) -> None:
         """Download a remote file to a local path."""
+        block_size = self.blocksize if block_size is None else block_size
         rpath = self._normalize_path(rpath)
         lpath = os.fspath(lpath)
         if os.path.isdir(lpath):
@@ -295,7 +301,7 @@ class OpendalFileSystem(AsyncFileSystem):
         reader = await self.async_fs.open(rpath, "rb")
         try:
             with open(lpath, "wb") as target:
-                while chunk := await reader.read(2**20):
+                while chunk := await reader.read(block_size):
                     callback.relative_update(target.write(chunk))
         finally:
             await reader.close()
@@ -306,9 +312,11 @@ class OpendalFileSystem(AsyncFileSystem):
         rpath,
         callback=DEFAULT_CALLBACK,
         mode="overwrite",
+        block_size: int | None = None,
         **kwargs,
     ) -> None:
         """Upload a local file to a remote path."""
+        block_size = self.blocksize if block_size is None else block_size
         lpath = os.fspath(lpath)
         if os.path.isdir(lpath):
             return
@@ -323,7 +331,7 @@ class OpendalFileSystem(AsyncFileSystem):
         )
         try:
             with open(lpath, "rb") as source:
-                while chunk := source.read(2**20):
+                while chunk := source.read(block_size):
                     await writer.write(chunk)
                     callback.relative_update(len(chunk))
         finally:

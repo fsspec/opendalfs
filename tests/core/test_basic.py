@@ -41,6 +41,18 @@ def test_write_read(s3_fs):
         assert fs.cat_file("test.txt") == content
 
 
+def test_file_transfer_accepts_block_size(memory_fs, tmp_path):
+    source = tmp_path / "source.bin"
+    downloaded = tmp_path / "downloaded.bin"
+    content = b"transfer buffer boundary"
+    source.write_bytes(content)
+
+    memory_fs.put_file(source, "target.bin", block_size=3)
+    memory_fs.get_file("target.bin", downloaded, block_size=5)
+
+    assert downloaded.read_bytes() == content
+
+
 def test_cat_file_ranges(any_fs):
     data = b"0123456789"
     any_fs.pipe_file("range.txt", data)
