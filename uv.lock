@@ -429,33 +429,6 @@ dependencies = [
     { name = "opendal" },
 ]
 
-[package.optional-dependencies]
-all = [
-    { name = "boto3" },
-    { name = "pyarrow" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "s3fs" },
-]
-bench = [
-    { name = "boto3" },
-    { name = "pyarrow" },
-    { name = "s3fs" },
-]
-dev = [
-    { name = "ruff" },
-]
-test = [
-    { name = "boto3" },
-    { name = "pyarrow" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "s3fs" },
-]
-
 [package.dev-dependencies]
 bench = [
     { name = "boto3" },
@@ -483,21 +456,9 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "boto3", marker = "extra == 'bench'" },
-    { name = "boto3", marker = "extra == 'test'" },
     { name = "fsspec" },
     { name = "opendal", specifier = ">=0.47.5,<0.48" },
-    { name = "opendalfs", extras = ["bench", "dev", "test"], marker = "extra == 'all'" },
-    { name = "pyarrow", marker = "extra == 'bench'" },
-    { name = "pyarrow", marker = "extra == 'test'" },
-    { name = "pytest", marker = "extra == 'test'" },
-    { name = "pytest-asyncio", marker = "extra == 'test'" },
-    { name = "pytest-cov", marker = "extra == 'test'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "s3fs", marker = "extra == 'bench'" },
-    { name = "s3fs", marker = "extra == 'test'" },
 ]
-provides-extras = ["dev", "test", "bench", "all"]
 
 [package.metadata.requires-dev]
 bench = [
