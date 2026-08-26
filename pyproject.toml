@@ -21,32 +21,6 @@ dependencies = [
 "opendal+gcs" = "opendalfs.registry:OpendalGCSFileSystem"
 "opendal+azblob" = "opendalfs.registry:OpendalAzBlobFileSystem"
 
-[project.optional-dependencies]
-# Development dependencies
-dev = [
-    "ruff",              # Code formatting and linting
-]
-
-# Test dependencies
-test = [
-    "pytest",           # Test framework
-    "pytest-asyncio",   # Async test support
-    "pytest-cov",       # Coverage reporting
-    "pyarrow",          # Arrow filesystem acceptance tests
-    "s3fs",             # S3 filesystem support
-    "boto3",            # AWS S3 client for environment provision
-]
-
-# Benchmark dependencies
-bench = [
-    "pyarrow",         # Arrow filesystem benchmarks
-    "s3fs",            # S3 filesystem support
-    "boto3",           # AWS S3 client for MinIO provisioning
-]
-
-# All development dependencies
-all = ["opendalfs[dev,test,bench]"]
-
 [dependency-groups]
 bench = [
     "boto3>=1.37.3",

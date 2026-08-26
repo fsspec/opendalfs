@@ -6,7 +6,7 @@ default:
 
 # Install all locked development dependencies.
 install:
-    uv sync --locked --all-extras --dev
+    uv sync --locked --dev
 
 # Check formatting, lint, and types.
 check:
