@@ -47,7 +47,7 @@ def opendal_storage(request, tmp_path, s3_config, monkeypatch):
             storage_root.mkdir()
             storage_options["root"] = str(storage_root)
         fs = fsspec.filesystem(protocol, **storage_options)
-        base_url = f"{protocol}:///{base_path}"
+        base_url = f"{protocol}://{base_path}"
 
     monkeypatch.setitem(fsspec.config.conf, protocol, storage_options)
     storage = OpendalStorage(
