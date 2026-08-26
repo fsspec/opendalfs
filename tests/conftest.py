@@ -26,7 +26,7 @@ def minio_server(s3_config):
 
 @pytest.fixture
 def s3_fs(minio_server, s3_config):
-    """Create an S3 filesystem for testing sync operations."""
+    """Create the canonical-path S3 service adapter."""
     fs = OpendalS3FileSystem(
         bucket=s3_config.bucket,
         endpoint=s3_config.endpoint,
@@ -75,7 +75,8 @@ def any_fs(request):
         return OpendalFileSystem(
             scheme="memory", asynchronous=False, skip_instance_cache=True
         )
-    return request.getfixturevalue("s3_fs")
+    s3_fs = request.getfixturevalue("s3_fs")
+    return OpendalFileSystem("s3", **s3_fs.storage_options, skip_instance_cache=True)
 
 
 @pytest.fixture(scope="function")

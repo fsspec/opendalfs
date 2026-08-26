@@ -1,5 +1,3 @@
-import fsspec
-
 from opendalfs.registry import (
     OpendalAzBlobFileSystem,
     OpendalGCSFileSystem,
@@ -23,46 +21,46 @@ def test_register_default_protocols():
 def test_strip_protocol_and_kwargs():
     assert (
         OpendalS3FileSystem._strip_protocol("opendal+s3://bucket/dir/file.txt")
-        == "dir/file.txt"
+        == "bucket/dir/file.txt"
     )
-    assert (
-        OpendalS3FileSystem._get_kwargs_from_urls("opendal+s3://bucket/dir/file.txt")[
-            "bucket"
-        ]
-        == "bucket"
-    )
+    assert OpendalS3FileSystem._get_kwargs_from_urls(
+        "opendal+s3://bucket/dir/file.txt"
+    ) == {"bucket": "bucket"}
 
     assert (
         OpendalAzBlobFileSystem._strip_protocol(
             "opendal+azblob://container/dir/file.txt"
         )
-        == "dir/file.txt"
+        == "container/dir/file.txt"
     )
-    assert (
-        OpendalAzBlobFileSystem._get_kwargs_from_urls(
-            "opendal+azblob://container/dir/file.txt"
-        )["container"]
-        == "container"
-    )
+    assert OpendalAzBlobFileSystem._get_kwargs_from_urls(
+        "opendal+azblob://container/dir/file.txt"
+    ) == {"container": "container"}
 
 
-def test_dynamic_service_registration():
+def test_dynamic_service_registration_uses_opendal_authority_option():
     from fsspec.registry import get_filesystem_class
 
     protocol = register_opendal_service("oss")
     assert protocol == "opendal+oss"
 
-    cls = get_filesystem_class("opendal+oss")
-    assert cls.protocol == "opendal+oss"
-    assert cls.service == "oss"
+    cls = get_filesystem_class(protocol)
+    assert cls.protocol == protocol
+    assert cls._strip_protocol("opendal+oss://bucket/dir/file.txt") == (
+        "bucket/dir/file.txt"
+    )
+    assert cls._get_kwargs_from_urls("opendal+oss://bucket/dir/file.txt") == {
+        "bucket": "bucket"
+    }
 
 
-def test_hostless_url_preserves_path_when_rebuilt():
-    protocol = register_opendal_service("memory")
-    url = f"{protocol}:///DataSet/records.jsonl"
-    _, path = fsspec.core.url_to_fs(url)
+def test_dynamic_service_registration_does_not_guess_authority_option():
+    from fsspec.registry import get_filesystem_class
 
-    rebuilt_fs, rebuilt_path = fsspec.core.url_to_fs(f"{protocol}://{path}")
+    protocol = register_opendal_service("webdav")
+    cls = get_filesystem_class(protocol)
 
-    assert rebuilt_path == path == "DataSet/records.jsonl"
-    assert rebuilt_fs.unstrip_protocol(rebuilt_path) == url
+    assert cls._strip_protocol("opendal+webdav://host/dir/file.txt") == (
+        "host/dir/file.txt"
+    )
+    assert cls._get_kwargs_from_urls("opendal+webdav://host/dir/file.txt") == {}

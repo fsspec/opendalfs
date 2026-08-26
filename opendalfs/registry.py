@@ -5,110 +5,124 @@ from urllib.parse import parse_qsl, urlsplit
 
 from .fs import OpendalFileSystem
 
-_DEFAULT_CONTAINER_KEY_BY_SERVICE: dict[str, str | None] = {
+# OpenDAL services whose native URI maps its authority directly to one option.
+_AUTHORITY_OPTION_BY_SERVICE = {
+    "aliyun-drive": "drive_type",
     "azblob": "container",
-    "fs": None,
-    "memory": None,
+    "b2": "bucket",
+    "cos": "bucket",
+    "gcs": "bucket",
+    "obs": "bucket",
+    "oss": "bucket",
+    "s3": "bucket",
+    "tos": "bucket",
+    "upyun": "bucket",
 }
-
-_DYNAMIC_FILESYSTEMS: dict[str, type[_OpendalServiceFileSystem]] = {}
-
-
-def _parse_opendal_url(url: str) -> tuple[str | None, str | None, str, dict[str, str]]:
-    if "://" not in url:
-        return None, None, url.lstrip("/"), {}
-
-    parsed = urlsplit(url)
-    scheme = parsed.scheme or None
-    authority = parsed.netloc or None
-    path = (parsed.path or "").lstrip("/")
-    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
-    return scheme, authority, path, query
 
 
 class _OpendalServiceFileSystem(OpendalFileSystem):
     protocol: ClassVar[str]
-    service: ClassVar[str]
-    container_key: ClassVar[str | None] = "bucket"
+    _authority_option: ClassVar[str | None] = None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         kwargs.pop("scheme", None)
-        super().__init__(type(self).service, *args, **kwargs)
+        service = type(self).protocol.removeprefix("opendal+")
+        super().__init__(service, *args, **kwargs)
+
+    def _normalize_path(self, path: str) -> str:
+        path = super()._normalize_path(path)
+        if self._authority_option is None:
+            return path
+
+        # Service adapters expose authority/path, while the OpenDAL operator
+        # is already scoped by the corresponding service option.
+        authority = self.storage_options.get(self._authority_option)
+        if path == authority:
+            return ""
+        if authority and path.startswith(f"{authority}/"):
+            return path[len(authority) + 1 :]
+        return path
+
+    def _to_fsspec_path(self, path: str) -> str:
+        if self._authority_option is None:
+            return path
+
+        authority = self.storage_options.get(self._authority_option)
+        if not authority:
+            return path
+        return f"{authority}/{path}" if path else authority
+
+    async def _ls(self, path: str, detail=True, **kwargs):
+        entries = await super()._ls(path, detail=detail, **kwargs)
+        if not detail:
+            return [self._to_fsspec_path(path) for path in entries]
+        return [
+            {**entry, "name": self._to_fsspec_path(entry["name"])} for entry in entries
+        ]
+
+    async def _info(self, path: str, **kwargs):
+        info = await super()._info(path, **kwargs)
+        return {**info, "name": self._to_fsspec_path(info["name"])}
 
     def unstrip_protocol(self, name: str) -> str:
-        scheme, _host, _stripped, _query = _parse_opendal_url(name)
-        if scheme == self.protocol:
+        if name.startswith(f"{self.protocol}://"):
             return name
 
-        stripped = self._strip_protocol(name)
-        if self.container_key is None:
-            return (
-                f"{self.protocol}:///{stripped}" if stripped else f"{self.protocol}:///"
-            )
+        if self._authority_option is not None:
+            authority = self.storage_options.get(self._authority_option)
+            if authority:
+                path = self._normalize_path(name)
+                return f"{self.protocol}://{self._to_fsspec_path(path)}"
 
-        container = self.storage_options.get(self.container_key)
-        if not container:
-            return super().unstrip_protocol(stripped)
-        if stripped:
-            return f"{self.protocol}://{container}/{stripped}"
-        return f"{self.protocol}://{container}"
-
-    @classmethod
-    def _strip_protocol(cls, path: Any) -> Any:
-        if isinstance(path, (list, tuple)):
-            return type(path)(cls._strip_protocol(p) for p in path)
-        if not isinstance(path, str):
-            return path
-
-        scheme, authority, stripped, _query = _parse_opendal_url(path)
-        if scheme is None:
-            return stripped
-        if scheme != cls.protocol:
-            return path
-        if cls.container_key is None and authority:
-            return f"{authority}/{stripped}" if stripped else authority
-        return stripped
+        path = self._strip_protocol(name).lstrip("/")
+        return f"{self.protocol}:///{path}" if path else f"{self.protocol}:///"
 
     @classmethod
     def _get_kwargs_from_urls(cls, path: str) -> dict[str, Any]:
-        scheme, authority, _stripped, query = _parse_opendal_url(path)
-        if scheme is not None and scheme != cls.protocol:
+        if "://" not in path:
             return {}
 
-        kwargs: dict[str, Any] = dict(query)
-        if authority and cls.container_key:
-            kwargs.setdefault(cls.container_key, authority)
+        parsed = urlsplit(path)
+        if parsed.scheme != cls.protocol:
+            return {}
+
+        kwargs: dict[str, Any] = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        if parsed.netloc and cls._authority_option:
+            kwargs.setdefault(cls._authority_option, parsed.netloc)
         return kwargs
 
 
 class OpendalS3FileSystem(_OpendalServiceFileSystem):
     protocol = "opendal+s3"
-    service = "s3"
-    container_key = "bucket"
+    _authority_option = _AUTHORITY_OPTION_BY_SERVICE["s3"]
 
 
 class OpendalGCSFileSystem(_OpendalServiceFileSystem):
     protocol = "opendal+gcs"
-    service = "gcs"
-    container_key = "bucket"
+    _authority_option = _AUTHORITY_OPTION_BY_SERVICE["gcs"]
 
 
 class OpendalAzBlobFileSystem(_OpendalServiceFileSystem):
     protocol = "opendal+azblob"
-    service = "azblob"
-    container_key = "container"
+    _authority_option = _AUTHORITY_OPTION_BY_SERVICE["azblob"]
 
 
-def register_opendal_service(service: str, *, container_key: str | None = None) -> str:
+_BUILTIN_FILESYSTEMS: dict[str, type[_OpendalServiceFileSystem]] = {
+    "s3": OpendalS3FileSystem,
+    "gcs": OpendalGCSFileSystem,
+    "azblob": OpendalAzBlobFileSystem,
+}
+_DYNAMIC_FILESYSTEMS: dict[str, type[_OpendalServiceFileSystem]] = {}
+
+
+def register_opendal_service(service: str) -> str:
     from fsspec.registry import register_implementation
 
     protocol = f"opendal+{service}"
-    if protocol not in _DYNAMIC_FILESYSTEMS:
-        key = (
-            _DEFAULT_CONTAINER_KEY_BY_SERVICE.get(service, "bucket")
-            if container_key is None
-            else container_key
-        )
+    cls = _BUILTIN_FILESYSTEMS.get(service)
+    if cls is None:
+        cls = _DYNAMIC_FILESYSTEMS.get(service)
+    if cls is None:
         safe = "".join([c if c.isalnum() else "_" for c in service])
         name = f"Opendal_{safe}_FileSystem"
         cls = type(
@@ -116,37 +130,17 @@ def register_opendal_service(service: str, *, container_key: str | None = None) 
             (_OpendalServiceFileSystem,),
             {
                 "protocol": protocol,
-                "service": service,
-                "container_key": key,
+                "_authority_option": _AUTHORITY_OPTION_BY_SERVICE.get(service),
             },
         )
-        _DYNAMIC_FILESYSTEMS[protocol] = cls
+        _DYNAMIC_FILESYSTEMS[service] = cls
 
-    register_implementation(protocol, _DYNAMIC_FILESYSTEMS[protocol])
+    register_implementation(protocol, cls)
     return protocol
 
 
 def register_opendal_protocols(services: list[str] | None = None) -> list[str]:
-    from fsspec.registry import register_implementation
-
-    builtins: dict[str, type[OpendalFileSystem]] = {
-        "opendal+s3": OpendalS3FileSystem,
-        "opendal+gcs": OpendalGCSFileSystem,
-        "opendal+azblob": OpendalAzBlobFileSystem,
-    }
-
     if services is None:
-        for protocol, cls in builtins.items():
-            register_implementation(protocol, cls)
-        return sorted(builtins.keys())
+        services = list(_BUILTIN_FILESYSTEMS)
 
-    registered: list[str] = []
-    for service in services:
-        protocol = f"opendal+{service}"
-        if protocol in builtins:
-            register_implementation(protocol, builtins[protocol])
-            registered.append(protocol)
-        else:
-            registered.append(register_opendal_service(service))
-
-    return sorted(set(registered))
+    return sorted({register_opendal_service(service) for service in services})
