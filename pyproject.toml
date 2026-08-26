@@ -55,6 +55,8 @@ bench = [
 ]
 test = [
     "boto3>=1.37.3",
+    "dask[dataframe]==2026.8.0",
+    "pandas==3.0.5",
     "pyarrow>=22.0.0",
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
