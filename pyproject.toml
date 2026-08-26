@@ -39,11 +39,26 @@ test = [
     "s3fs>=2025.5.1",
     "universal-pathlib==0.3.10",
 ]
+integration-kerchunk = [
+    "h5netcdf>=1.6.4",
+    "kerchunk[hdf]==0.2.10",
+]
+integration-rechunker = [
+    "rechunker==0.5.4",
+]
 dev = [
     { include-group = "bench" },
     { include-group = "test" },
     "ruff>=0.16.4",
     "ty>=0.0.74",
+]
+
+[tool.uv]
+conflicts = [
+    [
+        { group = "integration-kerchunk" },
+        { group = "integration-rechunker" },
+    ],
 ]
 
 [tool.setuptools]
