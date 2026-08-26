@@ -11,17 +11,13 @@ import fsspec
 import pytest
 from datasets import IterableDataset, load_dataset
 
-from opendalfs import register_opendal_service
-
 
 @pytest.mark.parametrize("streaming", [False, True])
-def test_load_json_from_opendal_url(streaming, tmp_path):
+def test_load_json_from_opendal_url(streaming, tmp_path, opendal_storage):
     """Load records through the URL entry point used by Hugging Face datasets."""
-    protocol = register_opendal_service("fs")
-    storage_root = tmp_path / "storage"
-    storage_root.mkdir()
-    storage_options = {"root": str(storage_root)}
-    data_url = f"{protocol}:///DataSet/records.jsonl"
+    protocol = opendal_storage.fs.protocol
+    storage_options = opendal_storage.storage_options
+    data_url = opendal_storage.url("DataSet/records.jsonl")
     records = b'{"text":"first","label":0}\n{"text":"second","label":1}\n'
     with fsspec.open(data_url, "wb", **storage_options) as data_file:
         data_file.write(records)
