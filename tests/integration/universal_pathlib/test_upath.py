@@ -8,12 +8,13 @@ Source: universal-pathlib 0.3.10,
 
 from upath import UPath
 
-from opendalfs import register_opendal_service
 
-
-def test_upath_protocol_read_write_and_listing():
-    protocol = register_opendal_service("memory")
-    root = UPath("universal-pathlib", protocol=protocol)
+def test_upath_protocol_read_write_and_listing(opendal_storage):
+    root = UPath(
+        opendal_storage.path("universal-pathlib"),
+        protocol=opendal_storage.fs.protocol,
+        **opendal_storage.fs.storage_options,
+    )
 
     folder = root / "folder1"
     folder.mkdir(parents=True)
