@@ -30,12 +30,14 @@ bench = [
 test = [
     "boto3>=1.37.3",
     "dask[dataframe]==2026.8.0",
+    "dvc-objects==5.2.0",
     "pandas==3.0.5",
     "pyarrow>=22.0.0",
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.1.1",
     "s3fs>=2025.5.1",
+    "universal-pathlib==0.3.10",
 ]
 dev = [
     { include-group = "bench" },

@@ -5,6 +5,7 @@ venv/
 *.pyc
 .pdm-python
 .idea
+.downstreams/
 
 opendalfs.egg-info/
 dist/
