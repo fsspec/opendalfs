@@ -30,7 +30,9 @@ bench = [
 test = [
     "boto3>=1.37.3",
     "dask[dataframe]==2026.8.0",
+    "datasets==5.0.1",
     "dvc-objects==5.2.0",
+    "lightning==2.6.5",
     "pandas==3.0.5",
     "pyarrow>=22.0.0",
     "pytest>=8.4.0",

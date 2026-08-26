@@ -5,8 +5,10 @@ from urllib.parse import parse_qsl, urlsplit
 
 from .fs import OpendalFileSystem
 
-_DEFAULT_CONTAINER_KEY_BY_SERVICE: dict[str, str] = {
+_DEFAULT_CONTAINER_KEY_BY_SERVICE: dict[str, str | None] = {
     "azblob": "container",
+    "fs": None,
+    "memory": None,
 }
 
 _DYNAMIC_FILESYSTEMS: dict[str, type[_OpendalServiceFileSystem]] = {}
@@ -18,16 +20,16 @@ def _parse_opendal_url(url: str) -> tuple[str | None, str | None, str, dict[str,
 
     parsed = urlsplit(url)
     scheme = parsed.scheme or None
-    host = parsed.hostname or parsed.netloc or None
+    authority = parsed.netloc or None
     path = (parsed.path or "").lstrip("/")
     query = dict(parse_qsl(parsed.query, keep_blank_values=True))
-    return scheme, host, path, query
+    return scheme, authority, path, query
 
 
 class _OpendalServiceFileSystem(OpendalFileSystem):
     protocol: ClassVar[str]
     service: ClassVar[str]
-    container_key: ClassVar[str] = "bucket"
+    container_key: ClassVar[str | None] = "bucket"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         kwargs.pop("scheme", None)
@@ -39,6 +41,11 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
             return name
 
         stripped = self._strip_protocol(name)
+        if self.container_key is None:
+            return (
+                f"{self.protocol}:///{stripped}" if stripped else f"{self.protocol}:///"
+            )
+
         container = self.storage_options.get(self.container_key)
         if not container:
             return super().unstrip_protocol(stripped)
@@ -53,22 +60,24 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         if not isinstance(path, str):
             return path
 
-        scheme, _host, stripped, _query = _parse_opendal_url(path)
+        scheme, authority, stripped, _query = _parse_opendal_url(path)
         if scheme is None:
             return stripped
         if scheme != cls.protocol:
             return path
+        if cls.container_key is None and authority:
+            return f"{authority}/{stripped}" if stripped else authority
         return stripped
 
     @classmethod
     def _get_kwargs_from_urls(cls, path: str) -> dict[str, Any]:
-        scheme, host, _stripped, query = _parse_opendal_url(path)
+        scheme, authority, _stripped, query = _parse_opendal_url(path)
         if scheme is not None and scheme != cls.protocol:
             return {}
 
         kwargs: dict[str, Any] = dict(query)
-        if host:
-            kwargs.setdefault(cls.container_key, host)
+        if authority and cls.container_key:
+            kwargs.setdefault(cls.container_key, authority)
         return kwargs
 
 
@@ -95,7 +104,11 @@ def register_opendal_service(service: str, *, container_key: str | None = None) 
 
     protocol = f"opendal+{service}"
     if protocol not in _DYNAMIC_FILESYSTEMS:
-        key = container_key or _DEFAULT_CONTAINER_KEY_BY_SERVICE.get(service, "bucket")
+        key = (
+            _DEFAULT_CONTAINER_KEY_BY_SERVICE.get(service, "bucket")
+            if container_key is None
+            else container_key
+        )
         safe = "".join([c if c.isalnum() else "_" for c in service])
         name = f"Opendal_{safe}_FileSystem"
         cls = type(

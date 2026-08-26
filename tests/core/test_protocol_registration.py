@@ -1,3 +1,5 @@
+import fsspec
+
 from opendalfs.registry import (
     OpendalAzBlobFileSystem,
     OpendalGCSFileSystem,
@@ -53,3 +55,14 @@ def test_dynamic_service_registration():
     cls = get_filesystem_class("opendal+oss")
     assert cls.protocol == "opendal+oss"
     assert cls.service == "oss"
+
+
+def test_hostless_url_preserves_path_when_rebuilt():
+    protocol = register_opendal_service("memory")
+    url = f"{protocol}:///DataSet/records.jsonl"
+    _, path = fsspec.core.url_to_fs(url)
+
+    rebuilt_fs, rebuilt_path = fsspec.core.url_to_fs(f"{protocol}://{path}")
+
+    assert rebuilt_path == path == "DataSet/records.jsonl"
+    assert rebuilt_fs.unstrip_protocol(rebuilt_path) == url
