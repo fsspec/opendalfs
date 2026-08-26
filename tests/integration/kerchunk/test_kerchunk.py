@@ -1,7 +1,4 @@
-import fsspec
 import pytest
-
-from opendalfs import register_opendal_service
 
 np = pytest.importorskip("numpy")
 xr = pytest.importorskip("xarray")
@@ -23,23 +20,25 @@ def hdf_dataset(tmp_path):
 
 
 @pytest.mark.parametrize("entry_style", ["url", "open-file"])
-def test_single_hdf5_to_zarr_from_opendalfs(hdf_dataset, entry_style):
+def test_single_hdf5_to_zarr_from_opendalfs(
+    hdf_dataset,
+    entry_style,
+    opendal_storage,
+):
     """Build and read references using kerchunk's two supported HDF inputs.
 
     Adapted from kerchunk 0.2.10 ``tests/test_hdf.py::test_times`` and
     ``test_times_str``.
     """
     expected, payload = hdf_dataset
-    register_opendal_service("memory")
-    fs = fsspec.filesystem("opendal+memory")
-    path = f"kerchunk-{entry_style}/source.nc"
-    url = f"opendal+memory:///{path}"
-    fs.pipe_file(path, payload)
+    path = opendal_storage.path(f"kerchunk-{entry_style}/source.nc")
+    url = opendal_storage.url(f"kerchunk-{entry_style}/source.nc")
+    opendal_storage.fs.pipe_file(path, payload)
 
     if entry_style == "url":
         translator = kerchunk_hdf.SingleHdf5ToZarr(url)
     else:
-        source = fs.open(path, "rb")
+        source = opendal_storage.fs.open(path, "rb")
         translator = kerchunk_hdf.SingleHdf5ToZarr(source, url)
 
     try:
@@ -48,7 +47,7 @@ def test_single_hdf5_to_zarr_from_opendalfs(hdf_dataset, entry_style):
         translator.close()
 
     result = xr.open_dataset(
-        kerchunk_utils.refs_as_store(references, fs=fs),
+        kerchunk_utils.refs_as_store(references, fs=opendal_storage.fs),
         engine="zarr",
         zarr_format=2,
         backend_kwargs={"consolidated": False},
