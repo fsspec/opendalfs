@@ -14,8 +14,6 @@ from lightning.pytorch import LightningModule, Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader, TensorDataset
 
-from opendalfs import register_opendal_service
-
 
 class TinyModel(LightningModule):
     def __init__(self):
@@ -30,11 +28,11 @@ class TinyModel(LightningModule):
         return torch.optim.SGD(self.parameters(), lr=0.1)
 
 
-def test_model_checkpoint_roundtrip_through_opendal_url():
+def test_model_checkpoint_roundtrip_through_opendal_url(opendal_storage):
     """Save and load a Lightning checkpoint through its fsspec URL entry point."""
-    register_opendal_service("memory")
+    checkpoint_dir = opendal_storage.url("checkpoints")
     checkpoint = ModelCheckpoint(
-        dirpath="opendal+memory:///checkpoints",
+        dirpath=checkpoint_dir,
         filename="model",
     )
     trainer = Trainer(
@@ -54,5 +52,5 @@ def test_model_checkpoint_roundtrip_through_opendal_url():
     trainer.fit(TinyModel(), train_dataloaders=DataLoader(training_data))
     restored = TinyModel.load_from_checkpoint(checkpoint.best_model_path)
 
-    assert checkpoint.best_model_path == "opendal+memory:///checkpoints/model.ckpt"
+    assert checkpoint.best_model_path == f"{checkpoint_dir}/model.ckpt"
     assert restored.state_dict().keys() == TinyModel().state_dict().keys()
