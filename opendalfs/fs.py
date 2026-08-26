@@ -506,22 +506,19 @@ class OpendalFileSystem(AsyncFileSystem):
     modified = sync_wrapper(_modified)
 
     def checksum(self, path: str) -> int:
-        """Return the backend ETag as an fsspec checksum token."""
+        """Return an fsspec checksum token for the current file version."""
         path = self._normalize_path(path)
         info = self.info(path, refresh=True)
-        if info["type"] == "directory":
-            return int(tokenize(info), 16)
-
         etag = info.get("etag")
         if etag is not None:
             # OpenDAL preserves backend ETags as opaque strings.  Tokenization
             # only adapts that value to fsspec's integer checksum interface.
             return int(tokenize(etag), 16)
 
-        # Do not turn a metadata lookup into an unbounded object download.
-        # Backends without an ETag cannot provide a cheap checksum token, while
-        # fsspec's cheaper, best-effort ukey remains available.
-        raise NotImplementedError(f"{self.scheme} does not expose ETags for checksums")
+        # Match AbstractFileSystem.checksum for backends without ETags.  This
+        # remains a metadata-only token and lets fsspec consumers use services
+        # such as memory and fs.
+        return int(tokenize(info), 16)
 
     def mv(
         self,

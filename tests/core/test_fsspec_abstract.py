@@ -118,11 +118,10 @@ def test_s3_change_tokens_reflect_same_size_overwrite_after_listing(s3_fs):
     assert s3_fs.ukey("cached") != old_ukey
 
 
-def test_checksum_requires_backend_etag(memory_fs):
+def test_checksum_is_available_without_backend_etag(memory_fs):
     memory_fs.pipe_file("data", b"content")
 
-    with pytest.raises(NotImplementedError, match="does not expose ETags"):
-        memory_fs.checksum("data")
+    assert memory_fs.checksum("data") == memory_fs.checksum("data")
 
 
 def test_recursive_copy_preserves_empty_directories(any_fs):
