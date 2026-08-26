@@ -9,11 +9,11 @@ Source: universal-pathlib 0.3.10,
 from upath import UPath
 
 
-def test_upath_protocol_read_write_and_listing(opendal_storage):
+def test_upath_protocol_read_write_and_listing(opendal_fs, opendal_root):
     root = UPath(
-        opendal_storage.path("universal-pathlib"),
-        protocol=opendal_storage.fs.protocol,
-        **opendal_storage.fs.storage_options,
+        f"{opendal_root}/universal-pathlib",
+        protocol=opendal_fs.protocol,
+        **opendal_fs.storage_options,
     )
 
     folder = root / "folder1"

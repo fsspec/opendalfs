@@ -13,13 +13,18 @@ from datasets import IterableDataset, load_dataset
 
 
 @pytest.mark.parametrize("streaming", [False, True])
-def test_load_json_from_opendal_url(streaming, tmp_path, opendal_storage):
+def test_load_json_from_opendal_url(
+    streaming,
+    tmp_path,
+    opendal_fs,
+    opendal_url,
+    opendal_storage_options,
+):
     """Load records through the URL entry point used by Hugging Face datasets."""
-    protocol = opendal_storage.fs.protocol
-    storage_options = opendal_storage.storage_options
-    data_url = opendal_storage.url("DataSet/records.jsonl")
+    protocol = opendal_fs.protocol
+    data_url = f"{opendal_url}/DataSet/records.jsonl"
     records = b'{"text":"first","label":0}\n{"text":"second","label":1}\n'
-    with fsspec.open(data_url, "wb", **storage_options) as data_file:
+    with fsspec.open(data_url, "wb", **opendal_storage_options) as data_file:
         data_file.write(records)
 
     dataset = load_dataset(
@@ -28,7 +33,7 @@ def test_load_json_from_opendal_url(streaming, tmp_path, opendal_storage):
         split="train",
         streaming=streaming,
         cache_dir=tmp_path / "cache",
-        storage_options={protocol: storage_options},
+        storage_options={protocol: opendal_storage_options},
     )
 
     assert isinstance(dataset, IterableDataset) is streaming

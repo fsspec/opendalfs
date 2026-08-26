@@ -9,8 +9,8 @@ instance through dvc-objects' existing ``MemoryFileSystem(fs=...)`` entry point.
 from dvc_objects.fs.memory import MemoryFileSystem
 
 
-def test_dvc_objects_find_walk_put_and_get(tmp_path, opendal_storage):
-    fs = MemoryFileSystem(fs=opendal_storage.fs)
+def test_dvc_objects_find_walk_put_and_get(tmp_path, opendal_fs, opendal_root):
+    fs = MemoryFileSystem(fs=opendal_fs)
     sources = {
         tmp_path / "sources" / "one.txt": b"one",
         tmp_path / "sources" / "nested" / "two.txt": b"two",
@@ -19,7 +19,7 @@ def test_dvc_objects_find_walk_put_and_get(tmp_path, opendal_storage):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
 
-    remote_root = opendal_storage.path("dvc-objects/dataset")
+    remote_root = f"{opendal_root}/dvc-objects/dataset"
     remote_paths = [f"{remote_root}/one.txt", f"{remote_root}/nested/two.txt"]
     fs.put([str(path) for path in sources], remote_paths)
 

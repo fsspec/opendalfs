@@ -12,17 +12,19 @@ import pandas as pd
 import pandas.testing as tm
 
 
-def test_read_csv_url_glob_and_tokenization(opendal_storage):
+def test_read_csv_url_glob_and_tokenization(
+    opendal_fs, opendal_root, opendal_url, opendal_storage_options
+):
     files = {
         "2014-01-01.csv": b"name,amount,id\nAlice,100,1\nBob,200,2\n",
         "2014-01-02.csv": b"name,amount,id\nCharlie,300,3\n",
     }
     for name, content in files.items():
-        opendal_storage.fs.pipe_file(opendal_storage.path(f"dask/{name}"), content)
+        opendal_fs.pipe_file(f"{opendal_root}/dask/{name}", content)
 
-    url = opendal_storage.url("dask/2014-01-*.csv")
-    first = dd.read_csv(url, storage_options=opendal_storage.storage_options)
-    second = dd.read_csv(url, storage_options=opendal_storage.storage_options)
+    url = f"{opendal_url}/dask/2014-01-*.csv"
+    first = dd.read_csv(url, storage_options=opendal_storage_options)
+    second = dd.read_csv(url, storage_options=opendal_storage_options)
     expected = pd.DataFrame({
         "name": ["Alice", "Bob", "Charlie"],
         "amount": [100, 200, 300],
@@ -38,24 +40,26 @@ def test_read_csv_url_glob_and_tokenization(opendal_storage):
     )
 
 
-def test_read_parquet_url(opendal_storage):
+def test_read_parquet_url(
+    opendal_fs, opendal_root, opendal_url, opendal_storage_options
+):
     expected = pd.DataFrame({"a": range(10)})
-    path = opendal_storage.path("dask/url.parquet")
-    expected.to_parquet(path, filesystem=opendal_storage.fs)
+    path = f"{opendal_root}/dask/url.parquet"
+    expected.to_parquet(path, filesystem=opendal_fs)
 
     result = dd.read_parquet(
-        opendal_storage.url("dask/url.parquet"),
-        storage_options=opendal_storage.storage_options,
+        f"{opendal_url}/dask/url.parquet",
+        storage_options=opendal_storage_options,
     ).compute()
 
     tm.assert_frame_equal(result, expected)
 
 
-def test_read_parquet_filesystem(opendal_storage):
+def test_read_parquet_filesystem(opendal_fs, opendal_root):
     expected = pd.DataFrame({"a": range(10)})
-    path = opendal_storage.path("dask/filesystem.parquet")
-    expected.to_parquet(path, filesystem=opendal_storage.fs)
+    path = f"{opendal_root}/dask/filesystem.parquet"
+    expected.to_parquet(path, filesystem=opendal_fs)
 
-    result = dd.read_parquet(path, filesystem=opendal_storage.fs).compute()
+    result = dd.read_parquet(path, filesystem=opendal_fs).compute()
 
     tm.assert_frame_equal(result, expected)

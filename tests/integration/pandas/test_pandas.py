@@ -9,26 +9,26 @@ import pandas as pd
 import pandas.testing as tm
 
 
-def test_read_csv_url(opendal_storage):
+def test_read_csv_url(opendal_fs, opendal_root, opendal_url):
     expected = pd.DataFrame({
         "int": [1, 3],
         "float": [2.0, None],
         "str": ["t", "s"],
         "dt": pd.date_range("2018-06-18", periods=2),
     })
-    opendal_storage.fs.pipe_file(
-        opendal_storage.path("pandas/test.csv"),
+    opendal_fs.pipe_file(
+        f"{opendal_root}/pandas/test.csv",
         expected.to_csv(index=False).encode(),
     )
 
-    result = pd.read_csv(opendal_storage.url("pandas/test.csv"), parse_dates=["dt"])
+    result = pd.read_csv(f"{opendal_url}/pandas/test.csv", parse_dates=["dt"])
 
     tm.assert_frame_equal(result, expected)
 
 
-def test_parquet_url_roundtrip(opendal_storage):
+def test_parquet_url_roundtrip(opendal_url):
     expected = pd.DataFrame({"a": [0, 1], "b": ["x", "y"]})
-    url = opendal_storage.url("pandas/test.parquet")
+    url = f"{opendal_url}/pandas/test.parquet"
 
     expected.to_parquet(url, engine="pyarrow", compression=None)
     result = pd.read_parquet(url, engine="pyarrow")
@@ -36,20 +36,20 @@ def test_parquet_url_roundtrip(opendal_storage):
     tm.assert_frame_equal(result, expected)
 
 
-def test_parquet_filesystem_roundtrip(opendal_storage):
+def test_parquet_filesystem_roundtrip(opendal_fs, opendal_root):
     expected = pd.DataFrame({"a": [0, 1], "b": ["x", "y"]})
-    path = opendal_storage.path("pandas/filesystem.parquet")
+    path = f"{opendal_root}/pandas/filesystem.parquet"
 
     expected.to_parquet(
         path,
         engine="pyarrow",
-        filesystem=opendal_storage.fs,
+        filesystem=opendal_fs,
         compression=None,
     )
     result = pd.read_parquet(
         path,
         engine="pyarrow",
-        filesystem=opendal_storage.fs,
+        filesystem=opendal_fs,
     )
 
     tm.assert_frame_equal(result, expected)
