@@ -13,6 +13,7 @@ from datasets import IterableDataset, load_dataset
 
 
 @pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("opendal_backend", ("fs", "s3"), indirect=True)
 def test_load_json_from_opendal_url(
     streaming,
     tmp_path,
@@ -22,12 +23,6 @@ def test_load_json_from_opendal_url(
     opendal_storage_options,
 ):
     """Load records through the URL entry point used by Hugging Face datasets."""
-    if opendal_backend == "memory":
-        # datasets reopens the filesystem from its URL, while OpenDAL memory
-        # storage is scoped to one Operator instance. Use a persistent backend
-        # for this behavior.
-        pytest.skip("OpenDAL memory storage is scoped to one Operator instance")
-
     protocol = opendal_fs.protocol
     data_url = f"{opendal_url}/DataSet/records.jsonl"
     records = b'{"text":"first","label":0}\n{"text":"second","label":1}\n'

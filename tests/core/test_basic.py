@@ -33,7 +33,7 @@ def test_pathlike_inputs_follow_fsspec_path_conventions(memory_fs):
     assert memory_fs.cat_file(path) == b"works"
 
 
-def test_write_read(s3_fs):
+def test_s3_write_read(s3_fs):
     """Test basic write and read operations."""
     for fs in [s3_fs]:
         content = b"test content"
