@@ -18,12 +18,14 @@ def test_upath_protocol_read_write_and_listing(opendal_fs, opendal_root):
 
     folder = root / "folder1"
     folder.mkdir(parents=True)
-    (folder / "file1.txt").write_text("hello world")
-    (folder / "file2.txt").write_bytes(b"hello bytes")
+    text_path = folder / "file1.txt"
+    bytes_path = folder / "file2.txt"
+    text_path.write_text("hello world")
+    bytes_path.write_bytes(b"hello bytes")
 
-    assert (folder / "file1.txt").read_text() == "hello world"
-    assert (folder / "file2.txt").read_bytes() == b"hello bytes"
-    assert {path.name for path in folder.iterdir()} == {
-        "file1.txt",
-        "file2.txt",
-    }
+    assert text_path.read_text() == "hello world"
+    assert bytes_path.read_bytes() == b"hello bytes"
+
+    children = set(folder.iterdir())
+    assert children == {text_path, bytes_path}
+    assert all(path.exists() for path in children)

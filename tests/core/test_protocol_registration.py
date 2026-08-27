@@ -61,6 +61,32 @@ def test_dynamic_service_registration_does_not_guess_authority_option():
     cls = get_filesystem_class(protocol)
 
     assert cls._strip_protocol("opendal+webdav://host/dir/file.txt") == (
-        "host/dir/file.txt"
+        "/host/dir/file.txt"
     )
     assert cls._get_kwargs_from_urls("opendal+webdav://host/dir/file.txt") == {}
+
+
+def test_dynamic_service_paths_without_authority_match_fsspec_memory():
+    from fsspec.implementations.memory import MemoryFileSystem
+    from fsspec.registry import get_filesystem_class
+
+    protocol = register_opendal_service("memory")
+    cls = get_filesystem_class(protocol)
+    opendal_fs = cls(skip_instance_cache=True)
+    memory_fs = MemoryFileSystem(skip_instance_cache=True)
+    root = "integration/path-contract"
+
+    def path_behavior(fs):
+        path = fs._strip_protocol(fs.unstrip_protocol(root))
+        file_path = f"{path}/one.txt"
+        nested_path = f"{path}/nested/two.txt"
+        fs.pipe_file(file_path, b"one")
+        fs.pipe_file(nested_path, b"two")
+        return {
+            "path": path,
+            "name": fs.info(file_path)["name"],
+            "find": fs.find(path),
+            "walk": list(fs.walk(path)),
+        }
+
+    assert path_behavior(opendal_fs) == path_behavior(memory_fs)

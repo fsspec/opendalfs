@@ -11,11 +11,6 @@ def opendal_backend(request):
 
 
 @pytest.fixture
-def opendal_root(tmp_path):
-    return f"integration/{tmp_path.name}"
-
-
-@pytest.fixture
 def opendal_protocol(opendal_backend):
     if opendal_backend == "s3":
         return "opendal+s3"
@@ -43,7 +38,6 @@ def opendal_fs(
     request,
     opendal_backend,
     opendal_protocol,
-    opendal_root,
     opendal_storage_options,
     monkeypatch,
 ):
@@ -57,20 +51,22 @@ def opendal_fs(
         opendal_protocol,
         opendal_storage_options,
     )
-    yield fs
+    return fs
 
-    if fs.exists(opendal_root):
-        fs.rm(opendal_root, recursive=True)
+
+@pytest.fixture
+def opendal_root(tmp_path, opendal_fs):
+    base_path = f"integration/{tmp_path.name}"
+    root = fsspec.core.strip_protocol(opendal_fs.unstrip_protocol(base_path))
+    yield root
+
+    if opendal_fs.exists(root):
+        opendal_fs.rm(root, recursive=True)
 
 
 @pytest.fixture
 def opendal_url(
-    opendal_backend,
-    opendal_protocol,
     opendal_root,
     opendal_fs,
-    s3_config,
 ):
-    if opendal_backend == "s3":
-        return f"{opendal_protocol}://{s3_config.bucket}/{opendal_root}"
-    return f"{opendal_protocol}://{opendal_root}"
+    return opendal_fs.unstrip_protocol(opendal_root)

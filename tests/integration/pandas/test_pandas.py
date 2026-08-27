@@ -9,7 +9,12 @@ import pandas as pd
 import pandas.testing as tm
 
 
-def test_read_csv_url(opendal_fs, opendal_root, opendal_url):
+def test_read_csv_url(
+    opendal_fs,
+    opendal_root,
+    opendal_url,
+    opendal_storage_options,
+):
     expected = pd.DataFrame({
         "int": [1, 3],
         "float": [2.0, None],
@@ -21,17 +26,30 @@ def test_read_csv_url(opendal_fs, opendal_root, opendal_url):
         expected.to_csv(index=False).encode(),
     )
 
-    result = pd.read_csv(f"{opendal_url}/pandas/test.csv", parse_dates=["dt"])
+    result = pd.read_csv(
+        f"{opendal_url}/pandas/test.csv",
+        parse_dates=["dt"],
+        storage_options=opendal_storage_options,
+    )
 
     tm.assert_frame_equal(result, expected)
 
 
-def test_parquet_url_roundtrip(opendal_url):
+def test_parquet_url_roundtrip(opendal_url, opendal_storage_options):
     expected = pd.DataFrame({"a": [0, 1], "b": ["x", "y"]})
     url = f"{opendal_url}/pandas/test.parquet"
 
-    expected.to_parquet(url, engine="pyarrow", compression=None)
-    result = pd.read_parquet(url, engine="pyarrow")
+    expected.to_parquet(
+        url,
+        engine="pyarrow",
+        compression=None,
+        storage_options=opendal_storage_options,
+    )
+    result = pd.read_parquet(
+        url,
+        engine="pyarrow",
+        storage_options=opendal_storage_options,
+    )
 
     tm.assert_frame_equal(result, expected)
 

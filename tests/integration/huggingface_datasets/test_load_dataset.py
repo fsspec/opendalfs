@@ -3,7 +3,7 @@
 Source repository: https://github.com/huggingface/datasets
 Source release: datasets 5.0.1 (PyPI and Git tag 5.0.1)
 Source cases:
-- tests/test_load.py:1017-1039, test_load_dataset_zip_jsonl
+- tests/test_load.py:1017-1039, test_load_dataset_zip_jsonl (jsonl_path case)
 - tests/test_load.py:1258-1266, test_remote_data_files
 """
 

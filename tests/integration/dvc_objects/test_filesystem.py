@@ -1,9 +1,8 @@
-"""dvc-objects compatibility cases migrated for issue #51.
+"""Exercise the dvc-objects fsspec entry point tracked by issue #51.
 
-Source: dvc-objects 5.2.0,
-``tests/fs/test_generic.py::test_copy`` and
-``tests/fs/test_localfs.py::test_walk``. The operations pass an opendalfs
-instance through dvc-objects' existing ``MemoryFileSystem(fs=...)`` entry point.
+dvc-objects 5.2.0 delegates these ``FileSystem`` operations to the wrapped
+fsspec filesystem. The test passes opendalfs through the existing
+``MemoryFileSystem(fs=...)`` entry point.
 """
 
 from dvc_objects.fs.memory import MemoryFileSystem

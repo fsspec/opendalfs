@@ -29,6 +29,13 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         service = type(self).protocol.removeprefix("opendal+")
         super().__init__(service, *args, **kwargs)
 
+    @classmethod
+    def _strip_protocol(cls, path):
+        path = super()._strip_protocol(path)
+        if cls._authority_option is None and path:
+            return f"/{path.lstrip('/')}"
+        return path
+
     def _normalize_path(self, path: str) -> str:
         path = super()._normalize_path(path)
         if self._authority_option is None:
@@ -45,7 +52,7 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
 
     def _to_fsspec_path(self, path: str) -> str:
         if self._authority_option is None:
-            return path
+            return f"/{path}" if path else ""
 
         authority = self.storage_options.get(self._authority_option)
         if not authority:

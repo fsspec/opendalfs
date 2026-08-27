@@ -1,12 +1,12 @@
-"""Compatibility cases migrated from PyTorch Lightning.
+"""Compatibility cases adapted from PyTorch Lightning.
 
 Source repository: https://github.com/Lightning-AI/pytorch-lightning
 Source release: lightning 2.6.5 (PyPI and Git tag 2.6.5)
 Source cases:
 - tests/tests_pytorch/trainer/connectors/test_checkpoint_connector.py:137-157,
   test_ckpt_for_fsspec
-- tests/tests_pytorch/models/test_restore.py:350-386,
-  test_running_test_pretrained_model_distrib_ddp_spawn
+- tests/tests_pytorch/models/test_restore.py:438-477,
+  test_load_model_from_checkpoint
 """
 
 import torch
@@ -49,8 +49,10 @@ def test_model_checkpoint_roundtrip_through_opendal_url(opendal_url):
         torch.tensor([[2.0]]),
     )
 
-    trainer.fit(TinyModel(), train_dataloaders=DataLoader(training_data))
+    model = TinyModel()
+    trainer.fit(model, train_dataloaders=DataLoader(training_data))
     restored = TinyModel.load_from_checkpoint(checkpoint.best_model_path)
 
     assert checkpoint.best_model_path == f"{checkpoint_dir}/model.ckpt"
-    assert restored.state_dict().keys() == TinyModel().state_dict().keys()
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(restored.state_dict()[name], value)

@@ -1,10 +1,11 @@
 """Dask dataframe fsspec entry points against OpenDAL services.
 
-Adapted from Dask ``test_read_csv_files`` and
+The CSV coverage is adapted from Dask ``test_read_csv_files`` and
 ``test_multiple_read_csv_has_deterministic_name`` in
-``dask/dataframe/io/tests/test_csv.py``, plus
-``test_fsspec_to_parquet_filesystem_option`` in
-``dask/dataframe/io/tests/test_parquet.py``, from the Dask 2026.8.0 release.
+``dask/dataframe/io/tests/test_csv.py``. The explicit-filesystem Parquet case
+is adapted from ``test_fsspec_to_parquet_filesystem_option`` in
+``dask/dataframe/io/tests/test_parquet.py``. The URL Parquet case exercises
+the public entry point tracked by issue #51. Sources are from Dask 2026.8.0.
 """
 
 import dask.dataframe as dd
