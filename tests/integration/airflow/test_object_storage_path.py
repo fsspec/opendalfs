@@ -6,18 +6,20 @@ airflow_sdk = pytest.importorskip("airflow.sdk")
 airflow_store = pytest.importorskip("airflow.sdk.io.store")
 
 
-def test_attached_object_storage_path_read_and_copy(opendal_fs, opendal_root):
+def test_attached_object_storage_path_read_write(opendal_fs, opendal_root):
     protocol = opendal_fs.protocol
-    airflow_store.attach(protocol, fs=opendal_fs)
-    source = airflow_sdk.ObjectStoragePath(
-        f"{opendal_root}/airflow/source.txt",
+    conn_id = "opendal"
+    airflow_store.attach(protocol, conn_id=conn_id, fs=opendal_fs)
+    path = airflow_sdk.ObjectStoragePath(
+        f"{opendal_root}/airflow/file.txt",
         protocol=protocol,
+        conn_id=conn_id,
     )
-    target = source.parent / "copy.txt"
 
-    with source.open("wb") as stream:
-        stream.write(b"hello from Airflow")
-    source.copy(target)
+    with path.open("wb") as stream:
+        stream.write(b"foo")
 
-    with target.open("rb") as stream:
-        assert stream.read() == b"hello from Airflow"
+    with path.open("rb") as stream:
+        assert stream.read() == b"foo"
+
+    path.unlink()

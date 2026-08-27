@@ -6,24 +6,32 @@ import pandas as pd
 import pandas.testing as tm
 
 
-def test_catalog_csv_source_reads_opendal_url(tmp_path, opendal_url):
-    data_url = f"{opendal_url}/intake/table.csv"
-    expected = pd.DataFrame({"value": [1, 2, 3]})
-    with fsspec.open(data_url, "wb") as stream:
-        stream.write(expected.to_csv(index=False).encode())
+def test_catalog_reads_csv_from_opendal(opendal_url):
+    catalog_url = f"{opendal_url}/intake/catalog.yml"
+    data_url = f"{opendal_url}/intake/file.csv"
+    expected = pd.DataFrame({"a": [0], "b": [1]})
 
-    catalog_path = tmp_path / "catalog.yml"
-    catalog_path.write_text(
-        f"""\
-metadata: {{}}
+    with fsspec.open(data_url, "wt") as stream:
+        expected.to_csv(stream, index=False)
+
+    with fsspec.open(catalog_url, "wt") as stream:
+        stream.write(
+            f"""\
 sources:
-  table:
+  implicit:
     driver: csv
+    description: relative URL
     args:
-      urlpath: {data_url}
+      urlpath: '{{{{CATALOG_DIR}}}}/file.csv'
+  explicit:
+    driver: csv
+    description: full URL
+    args:
+      urlpath: '{data_url}'
 """
-    )
+        )
 
-    result = intake.open_catalog(catalog_path).table.read()
+    catalog = intake.open_catalog(catalog_url)
 
-    tm.assert_frame_equal(result, expected)
+    tm.assert_frame_equal(catalog.implicit.read(), expected)
+    tm.assert_frame_equal(catalog.explicit.read(), expected)
