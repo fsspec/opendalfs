@@ -32,6 +32,7 @@ test = [
     "dask[dataframe]==2026.8.0",
     "datasets==5.0.1",
     "dvc-objects==5.2.0",
+    "intake==2.0.9",
     "lightning==2.6.5",
     "pandas==3.0.5",
     "pyarrow>=22.0.0",
@@ -48,6 +49,22 @@ integration-kerchunk = [
 integration-rechunker = [
     "rechunker==0.5.4",
 ]
+integration-zarr = [
+    "zarr==3.3.0",
+]
+integration-xarray = [
+    "xarray==2026.7.0",
+    "zarr==3.3.0",
+]
+integration-prefect = [
+    "prefect==3.8.4; python_version < '3.15'",
+]
+integration-airflow = [
+    "apache-airflow-task-sdk==1.3.1; python_version < '3.15'",
+]
+integration-torchdata = [
+    "torchdata==0.9.0; python_version < '3.13'",
+]
 dev = [
     { include-group = "bench" },
     { include-group = "test" },
@@ -60,6 +77,18 @@ conflicts = [
     [
         { group = "integration-kerchunk" },
         { group = "integration-rechunker" },
+    ],
+    [
+        { group = "integration-rechunker" },
+        { group = "integration-zarr" },
+    ],
+    [
+        { group = "integration-rechunker" },
+        { group = "integration-xarray" },
+    ],
+    [
+        { group = "integration-prefect" },
+        { group = "integration-airflow" },
     ],
 ]
 
