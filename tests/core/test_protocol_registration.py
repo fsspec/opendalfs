@@ -26,6 +26,9 @@ def test_strip_protocol_and_kwargs():
     assert OpendalS3FileSystem._get_kwargs_from_urls(
         "opendal+s3://bucket/dir/file.txt"
     ) == {"bucket": "bucket"}
+    assert OpendalS3FileSystem._get_kwargs_from_urls(
+        "opendal+s3://bucket/dir/file.txt?bucket=other&region=elsewhere"
+    ) == {"bucket": "bucket"}
 
     assert (
         OpendalAzBlobFileSystem._strip_protocol(
@@ -87,11 +90,44 @@ def test_dynamic_service_paths_without_authority_match_fsspec_memory():
         nested_path = f"{path}/nested/two.txt"
         fs.pipe_file(file_path, b"one")
         fs.pipe_file(nested_path, b"two")
-        return {
+        behavior = {
             "path": path,
             "name": fs.info(file_path)["name"],
             "find": fs.find(path),
             "walk": list(fs.walk(path)),
         }
+        fs.rm_file(file_path)
+        behavior["find_after_rm"] = fs.find(path)
+        return behavior
 
     assert path_behavior(opendal_fs) == path_behavior(memory_fs)
+
+
+def test_authority_prefixed_keys_are_not_normalized_twice(tmp_path):
+    from fsspec.registry import get_filesystem_class
+
+    protocol = register_opendal_service("memory")
+    memory_cls = get_filesystem_class(protocol)
+
+    class ScopedMemoryFileSystem(memory_cls):
+        _authority_option = "bucket"
+
+    fs = ScopedMemoryFileSystem(skip_instance_cache=True)
+    fs.storage_options["bucket"] = "bucket"
+
+    source = "bucket/bucket/source.txt"
+    copied = "bucket/bucket/copied.txt"
+    moved = "bucket/bucket/moved.txt"
+    downloaded = tmp_path / "downloaded.txt"
+
+    fs.pipe_file(source, b"content")
+    fs.get_file(source, downloaded)
+    fs.cp_file(source, copied)
+    fs.mv(copied, moved)
+
+    assert downloaded.read_bytes() == b"content"
+    assert fs.cat_file(moved) == b"content"
+    assert fs.info(moved)["name"] == moved
+
+    fs.rm_file(source)
+    assert fs.find("bucket/bucket") == [moved]

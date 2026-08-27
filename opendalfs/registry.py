@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, ClassVar
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import urlsplit
 
 from .fs import OpendalFileSystem
 
@@ -73,11 +73,8 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         return {**info, "name": self._to_fsspec_path(info["name"])}
 
     def unstrip_protocol(self, name: str) -> str:
-        if name.startswith(f"{self.protocol}://"):
-            return name
-
         path = self._to_fsspec_path(self._normalize_path(name))
-        return f"{self.protocol}://{path or '/'}"
+        return super().unstrip_protocol(path)
 
     @classmethod
     def _get_kwargs_from_urls(cls, path: str) -> dict[str, Any]:
@@ -88,10 +85,9 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         if parsed.scheme != cls.protocol:
             return {}
 
-        kwargs: dict[str, Any] = dict(parse_qsl(parsed.query, keep_blank_values=True))
-        if parsed.netloc and cls._authority_option:
-            kwargs.setdefault(cls._authority_option, parsed.netloc)
-        return kwargs
+        if not parsed.netloc or cls._authority_option is None:
+            return {}
+        return {cls._authority_option: parsed.netloc}
 
 
 class OpendalS3FileSystem(_OpendalServiceFileSystem):

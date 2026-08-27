@@ -151,7 +151,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
     def _commit_upload(self) -> None:
         """Ensure upload is complete"""
         if self.mode == "ab" and self._append_via_write:
-            self.fs.invalidate_cache(self.fs._parent(self.path))
+            self.fs._invalidate_opendal_cache(self.path)
             return
 
         if self._opendal_writer is None:
@@ -165,7 +165,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
             except (AlreadyExists, ConditionNotMatch) as err:
                 self.closed = True
                 raise FileExistsError(self.path) from err
-            self.fs.invalidate_cache(self.fs._parent(self.path))
+            self.fs._invalidate_opendal_cache(self.path)
             return
 
         writer = self._opendal_writer
@@ -177,7 +177,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
             raise FileExistsError(self.path) from err
         finally:
             self._opendal_writer = None
-        self.fs.invalidate_cache(self.fs._parent(self.path))
+        self.fs._invalidate_opendal_cache(self.path)
 
     def close(self):
         """Ensure data is written before closing"""
@@ -315,7 +315,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
 
     async def _commit_upload(self) -> None:
         if self.mode == "ab" and self._append_via_write:
-            self.fs.invalidate_cache(self.fs._parent(self.path))
+            self.fs._invalidate_opendal_cache(self.path)
             return
 
         if self._opendal_writer is None:
@@ -330,7 +330,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             except (AlreadyExists, ConditionNotMatch) as err:
                 self.closed = True
                 raise FileExistsError(self.path) from err
-            self.fs.invalidate_cache(self.fs._parent(self.path))
+            self.fs._invalidate_opendal_cache(self.path)
             return
 
         try:
@@ -340,7 +340,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             raise FileExistsError(self.path) from err
         finally:
             self._opendal_writer = None
-        self.fs.invalidate_cache(self.fs._parent(self.path))
+        self.fs._invalidate_opendal_cache(self.path)
 
     async def close(self):
         if self.closed:
