@@ -101,38 +101,3 @@ def test_dynamic_service_paths_without_authority_match_fsspec_memory():
         return behavior
 
     assert path_behavior(opendal_fs) == path_behavior(memory_fs)
-
-
-def test_authority_prefixed_keys_are_not_normalized_twice(tmp_path):
-    from fsspec.registry import get_filesystem_class
-
-    protocol = register_opendal_service("memory")
-    memory_cls = get_filesystem_class(protocol)
-
-    class ScopedMemoryFileSystem(memory_cls):
-        _authority_option = "bucket"
-
-    fs = ScopedMemoryFileSystem(skip_instance_cache=True)
-    fs.storage_options["bucket"] = "bucket"
-
-    source = "bucket/bucket/source.txt"
-    copied = "bucket/bucket/copied.txt"
-    moved = "bucket/bucket/moved.txt"
-    downloaded = tmp_path / "downloaded.txt"
-
-    fs.pipe_file(source, b"content")
-    with fs.open(source, "rb") as source_file:
-        assert source_file.path == source
-        assert source_file.read() == b"content"
-    with fs.open(source, "ab") as source_file:
-        source_file.write(b" appended")
-    fs.get_file(source, downloaded)
-    fs.cp_file(source, copied)
-    fs.mv(copied, moved)
-
-    assert downloaded.read_bytes() == b"content appended"
-    assert fs.cat_file(moved) == b"content appended"
-    assert fs.info(moved)["name"] == moved
-
-    fs.rm_file(source)
-    assert fs.find("bucket/bucket") == [moved]

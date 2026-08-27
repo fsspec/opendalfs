@@ -20,7 +20,6 @@ def _exclusive_write_options(operator, exclusive: bool) -> dict[str, bool]:
 class OpendalBufferedFile(AbstractBufferedFile):
     """Buffered file implementation for OpenDAL"""
 
-    _opendal_path: str
     _opendal_writer: OpendalFile | None
     _append_via_write: bool
     _initiated: bool
@@ -40,7 +39,6 @@ class OpendalBufferedFile(AbstractBufferedFile):
         self._opendal_writer = None
         self._append_via_write = False
         self._initiated = False
-        self._opendal_path = fs._normalize_path(path)
 
         super().__init__(
             fs,
@@ -68,7 +66,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
 
         length = end - start
         try:
-            return self.fs.operator.read(self._opendal_path, offset=start, size=length)
+            return self.fs.operator.read(self.path, offset=start, size=length)
         except NotFound as err:
             raise FileNotFoundError(self.path) from err
 
@@ -84,21 +82,21 @@ class OpendalBufferedFile(AbstractBufferedFile):
             if not final:
                 return False
             if self.mode == "ab" and self._append_via_write:
-                if not self.fs.operator.exists(self._opendal_path):
-                    self.fs.operator.write(self._opendal_path, b"")
+                if not self.fs.operator.exists(self.path):
+                    self.fs.operator.write(self.path, b"")
                 return None
             self._commit_upload()
             return None
 
         if self.mode == "ab" and self._append_via_write:
             # Let OpenDAL handle append semantics if the backend supports it.
-            self.fs.operator.write(self._opendal_path, chunk, append=True)
+            self.fs.operator.write(self.path, chunk, append=True)
             return None
 
         if self._opendal_writer is None:
             try:
                 self._opendal_writer = self.fs.operator.open(
-                    self._opendal_path,
+                    self.path,
                     "wb",
                     **self.fs._writer_options(
                         self.fs.operator, self.kwargs, self.mode == "xb"
@@ -123,7 +121,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
         if (
             self.mode == "xb"
             and not _exclusive_write_options(self.fs.operator, True)
-            and self.fs.operator.exists(self._opendal_path)
+            and self.fs.operator.exists(self.path)
         ):
             raise FileExistsError(self.path)
 
@@ -136,12 +134,12 @@ class OpendalBufferedFile(AbstractBufferedFile):
             else:
                 # Fallback: emulate append by rewriting the full object.
                 try:
-                    existing = self.fs.operator.read(self._opendal_path)
+                    existing = self.fs.operator.read(self.path)
                 except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
                     self._opendal_writer = self.fs.operator.open(
-                        self._opendal_path,
+                        self.path,
                         "wb",
                         **self.fs._writer_options(self.fs.operator, self.kwargs, False),
                     )
@@ -153,21 +151,21 @@ class OpendalBufferedFile(AbstractBufferedFile):
     def _commit_upload(self) -> None:
         """Ensure upload is complete"""
         if self.mode == "ab" and self._append_via_write:
-            self.fs.invalidate_cache(self.path)
+            self.fs.invalidate_cache(self.fs._parent(self.path))
             return
 
         if self._opendal_writer is None:
             # Ensure empty files are created on close.
             try:
                 self.fs.operator.write(
-                    self._opendal_path,
+                    self.path,
                     b"",
                     **_exclusive_write_options(self.fs.operator, self.mode == "xb"),
                 )
             except (AlreadyExists, ConditionNotMatch) as err:
                 self.closed = True
                 raise FileExistsError(self.path) from err
-            self.fs.invalidate_cache(self.path)
+            self.fs.invalidate_cache(self.fs._parent(self.path))
             return
 
         writer = self._opendal_writer
@@ -179,7 +177,7 @@ class OpendalBufferedFile(AbstractBufferedFile):
             raise FileExistsError(self.path) from err
         finally:
             self._opendal_writer = None
-        self.fs.invalidate_cache(self.path)
+        self.fs.invalidate_cache(self.fs._parent(self.path))
 
     def close(self):
         """Ensure data is written before closing"""
@@ -199,7 +197,6 @@ class OpendalBufferedFile(AbstractBufferedFile):
 class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
     """Async buffered file implementation for OpenDAL."""
 
-    _opendal_path: str
     _opendal_writer: OpendalAsyncFile | None
     _append_via_write: bool
     _initiated: bool
@@ -221,7 +218,6 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
         self._append_via_write = False
         self._initiated = False
         self._exclusive_create = mode == "xb"
-        self._opendal_path = fs._normalize_path(path)
         normalized_mode = "wb" if self._exclusive_create else mode
         super().__init__(
             fs,
@@ -241,9 +237,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
 
         length = end - start
         try:
-            return await self.fs.async_fs.read(
-                self._opendal_path, offset=start, size=length
-            )
+            return await self.fs.async_fs.read(self.path, offset=start, size=length)
         except NotFound as err:
             raise FileNotFoundError(self.path) from err
 
@@ -258,20 +252,20 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             if not final:
                 return False
             if self.mode == "ab" and self._append_via_write:
-                if not await self.fs.async_fs.exists(self._opendal_path):
-                    await self.fs.async_fs.write(self._opendal_path, b"")
+                if not await self.fs.async_fs.exists(self.path):
+                    await self.fs.async_fs.write(self.path, b"")
                 return None
             await self._commit_upload()
             return None
 
         if self.mode == "ab" and self._append_via_write:
-            await self.fs.async_fs.write(self._opendal_path, chunk, append=True)
+            await self.fs.async_fs.write(self.path, chunk, append=True)
             return None
 
         if self._opendal_writer is None:
             try:
                 self._opendal_writer = await self.fs.async_fs.open(
-                    self._opendal_path,
+                    self.path,
                     "wb",
                     **self.fs._writer_options(
                         self.fs.async_fs, self.kwargs, self._exclusive_create
@@ -294,7 +288,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
         if (
             self._exclusive_create
             and not _exclusive_write_options(self.fs.async_fs, True)
-            and await self.fs.async_fs.exists(self._opendal_path)
+            and await self.fs.async_fs.exists(self.path)
         ):
             raise FileExistsError(self.path)
 
@@ -305,12 +299,12 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
                 self.offset = self.loc
             else:
                 try:
-                    existing = await self.fs.async_fs.read(self._opendal_path)
+                    existing = await self.fs.async_fs.read(self.path)
                 except (FileNotFoundError, NotFound):
                     existing = b""
                 if existing:
                     self._opendal_writer = await self.fs.async_fs.open(
-                        self._opendal_path,
+                        self.path,
                         "wb",
                         **self.fs._writer_options(self.fs.async_fs, self.kwargs, False),
                     )
@@ -321,13 +315,13 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
 
     async def _commit_upload(self) -> None:
         if self.mode == "ab" and self._append_via_write:
-            self.fs.invalidate_cache(self.path)
+            self.fs.invalidate_cache(self.fs._parent(self.path))
             return
 
         if self._opendal_writer is None:
             try:
                 await self.fs.async_fs.write(
-                    self._opendal_path,
+                    self.path,
                     b"",
                     **_exclusive_write_options(
                         self.fs.async_fs, self._exclusive_create
@@ -336,7 +330,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             except (AlreadyExists, ConditionNotMatch) as err:
                 self.closed = True
                 raise FileExistsError(self.path) from err
-            self.fs.invalidate_cache(self.path)
+            self.fs.invalidate_cache(self.fs._parent(self.path))
             return
 
         try:
@@ -346,7 +340,7 @@ class OpendalAsyncBufferedFile(AbstractAsyncStreamedFile):
             raise FileExistsError(self.path) from err
         finally:
             self._opendal_writer = None
-        self.fs.invalidate_cache(self.path)
+        self.fs.invalidate_cache(self.fs._parent(self.path))
 
     async def close(self):
         if self.closed:
