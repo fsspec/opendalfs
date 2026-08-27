@@ -81,7 +81,7 @@ integration-torchdata = [
 dev = [
     { include-group = "bench" },
     { include-group = "docs" },
-    { include-group = "docs-examples" },
+    { include-group = "test" },
     "ruff>=0.16.4",
     "ty>=0.0.74",
 ]
