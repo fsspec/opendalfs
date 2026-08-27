@@ -32,6 +32,10 @@ import opendalfs
 opendalfs.register_opendal_service("oss")
 ```
 
+Services such as OSS that use the URL authority as an OpenDAL configuration
+option are detected automatically. Other services use root-relative URLs and
+receive their OpenDAL configuration through fsspec storage options.
+
 ## Installation
 
 ### Basic Installation

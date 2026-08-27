@@ -41,6 +41,10 @@ class _S3Fixtures(_OpendalFixtures):
     """Configure the OpenDAL S3 backend against MinIO for acceptance tests."""
 
     @pytest.fixture
+    def fs_path(self, s3_config):
+        return f"{s3_config.bucket}/contract"
+
+    @pytest.fixture
     def fs(self, s3_fs):
         return s3_fs
 
