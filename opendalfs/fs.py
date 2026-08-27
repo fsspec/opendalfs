@@ -132,6 +132,9 @@ class OpendalFileSystem(AsyncFileSystem):
             return self._directory_path(normalized)
         return normalized
 
+    def _to_fsspec_path(self, path: str) -> str:
+        return path
+
     def _ls_from_cache(self, path: str):
         """Look up an OpenDAL-relative path in the listings cache."""
         path = path.rstrip("/")
@@ -266,7 +269,7 @@ class OpendalFileSystem(AsyncFileSystem):
             return
 
         await self.async_fs.create_dir(self._directory_path(base))
-        self._invalidate_opendal_cache(base)
+        self.invalidate_cache(self._to_fsspec_path(base))
 
     async def _makedirs(self, path: str, exist_ok: bool = False) -> None:
         """Create a directory and any missing parents."""
@@ -287,7 +290,7 @@ class OpendalFileSystem(AsyncFileSystem):
             raise OSError(errno.ENOTEMPTY, "Directory not empty", path)
         base = self._normalize_path(path).rstrip("/")
         await self.async_fs.delete(self._directory_path(base))
-        self._invalidate_opendal_cache(base)
+        self.invalidate_cache(self._to_fsspec_path(base))
 
     rmdir = sync_wrapper(_rmdir)
 
@@ -305,7 +308,7 @@ class OpendalFileSystem(AsyncFileSystem):
             else path
         )
         await self.async_fs.delete(backend_path)
-        self._invalidate_opendal_cache(path)
+        self.invalidate_cache(self._to_fsspec_path(path))
 
     async def _cp_file(self, path1: str, path2: str, **kwargs) -> None:
         """Copy file from path1 to path2."""
@@ -320,7 +323,7 @@ class OpendalFileSystem(AsyncFileSystem):
         if source_is_directory:
             if capability.create_dir:
                 await self.async_fs.create_dir(self._directory_path(path2))
-                self._invalidate_opendal_cache(path2)
+                self.invalidate_cache(self._to_fsspec_path(path2))
             return
         try:
             if capability.copy:
@@ -330,7 +333,7 @@ class OpendalFileSystem(AsyncFileSystem):
                 await self.async_fs.write(path2, data)
         except NotFound as err:
             raise FileNotFoundError(path1) from err
-        self._invalidate_opendal_cache(path2)
+        self.invalidate_cache(self._to_fsspec_path(path2))
 
     async def _read(self, path: str, **kwargs):
         try:
@@ -432,7 +435,7 @@ class OpendalFileSystem(AsyncFileSystem):
                     callback.relative_update(len(chunk))
         finally:
             await writer.close()
-        self._invalidate_opendal_cache(rpath)
+        self.invalidate_cache(self._to_fsspec_path(rpath))
 
     async def _pipe_file(
         self, path: str, value: bytes, mode: str = "overwrite", **kwargs
@@ -452,7 +455,7 @@ class OpendalFileSystem(AsyncFileSystem):
                 await self.async_fs.write(path, value)
         except (AlreadyExists, ConditionNotMatch) as err:
             raise FileExistsError(path) from err
-        self._invalidate_opendal_cache(path)
+        self.invalidate_cache(self._to_fsspec_path(path))
 
     async def _opendal_rename(self, source: str, target: str) -> None:
         source = self._normalize_path(source)
@@ -472,14 +475,14 @@ class OpendalFileSystem(AsyncFileSystem):
         **kwargs: Any,
     ) -> OpendalBufferedFile:
         """Open a file for reading or writing"""
-        path = self._normalize_path(path)
+        opendal_path = self._normalize_path(path)
         # Match Python/fsspec's eager exclusive-create contract.  Backends with
         # conditional writes still enforce atomicity when the upload commits.
-        if mode == "xb" and self.operator.exists(path):
+        if mode == "xb" and self.operator.exists(opendal_path):
             raise FileExistsError(path)
         return OpendalBufferedFile(
             self,
-            path,
+            self._to_fsspec_path(opendal_path),
             mode,
             block_size,
             autocommit,
@@ -491,25 +494,27 @@ class OpendalFileSystem(AsyncFileSystem):
         if "b" not in mode or kwargs.get("compression"):
             raise ValueError
 
-        path = self._normalize_path(path)
+        opendal_path = self._normalize_path(path)
 
-        if mode == "xb" and await self.async_fs.exists(path):
+        if mode == "xb" and await self.async_fs.exists(opendal_path):
             raise FileExistsError(path)
 
         size = None
         if mode == "rb":
             try:
-                info = await self.async_fs.stat(path)
+                info = await self.async_fs.stat(opendal_path)
             except NotFound as err:
                 raise FileNotFoundError(path) from err
             else:
                 size = info.content_length
 
-        file = OpendalAsyncBufferedFile(self, path, mode, size=size, **kwargs)
+        file = OpendalAsyncBufferedFile(
+            self, self._to_fsspec_path(opendal_path), mode, size=size, **kwargs
+        )
 
         if mode == "ab":
             try:
-                info = await self.async_fs.stat(path)
+                info = await self.async_fs.stat(opendal_path)
                 file.loc = info.content_length
             except NotFound:
                 file.loc = 0
@@ -570,15 +575,20 @@ class OpendalFileSystem(AsyncFileSystem):
             except Unsupported:
                 pass
             else:
-                self._invalidate_opendal_cache(src)
-                self._invalidate_opendal_cache(dst)
+                self.invalidate_cache(self._to_fsspec_path(src))
+                self.invalidate_cache(self._to_fsspec_path(dst))
                 return None
         return super().mv(
             path1, path2, recursive=recursive, maxdepth=maxdepth, **kwargs
         )
 
-    def _invalidate_opendal_cache(self, path: str) -> None:
-        path = path.rstrip("/")
+    def invalidate_cache(self, path: str | None = None):
+        if path is None:
+            self.dircache.clear()
+            super().invalidate_cache(path)
+            return
+
+        path = self._normalize_path(path).rstrip("/")
         current = path
         while True:
             self.dircache.pop(current, None)
@@ -590,11 +600,3 @@ class OpendalFileSystem(AsyncFileSystem):
             if key.startswith(prefix):
                 self.dircache.pop(key, None)
         super().invalidate_cache(path)
-
-    def invalidate_cache(self, path: str | None = None):
-        if path is None:
-            self.dircache.clear()
-            super().invalidate_cache(path)
-            return
-
-        self._invalidate_opendal_cache(self._normalize_path(path))

@@ -121,12 +121,17 @@ def test_authority_prefixed_keys_are_not_normalized_twice(tmp_path):
     downloaded = tmp_path / "downloaded.txt"
 
     fs.pipe_file(source, b"content")
+    with fs.open(source, "rb") as source_file:
+        assert source_file.path == source
+        assert source_file.read() == b"content"
+    with fs.open(source, "ab") as source_file:
+        source_file.write(b" appended")
     fs.get_file(source, downloaded)
     fs.cp_file(source, copied)
     fs.mv(copied, moved)
 
-    assert downloaded.read_bytes() == b"content"
-    assert fs.cat_file(moved) == b"content"
+    assert downloaded.read_bytes() == b"content appended"
+    assert fs.cat_file(moved) == b"content appended"
     assert fs.info(moved)["name"] == moved
 
     fs.rm_file(source)
