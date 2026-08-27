@@ -56,24 +56,24 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
             return path[len(authority) + 1 :]
         return path
 
-    def _to_fsspec_path(self, path: str) -> str:
+    def _add_authority(self, path: str) -> str:
         authority = self._authority
         return f"{authority}/{path}" if path else authority
 
     async def _ls(self, path: str, detail=True, **kwargs):
         entries = await super()._ls(path, detail=detail, **kwargs)
         if not detail:
-            return [self._to_fsspec_path(path) for path in entries]
+            return [self._add_authority(path) for path in entries]
         return [
-            {**entry, "name": self._to_fsspec_path(entry["name"])} for entry in entries
+            {**entry, "name": self._add_authority(entry["name"])} for entry in entries
         ]
 
     async def _info(self, path: str, **kwargs):
         info = await super()._info(path, **kwargs)
-        return {**info, "name": self._to_fsspec_path(info["name"])}
+        return {**info, "name": self._add_authority(info["name"])}
 
     def unstrip_protocol(self, name: str) -> str:
-        path = self._to_fsspec_path(self._normalize_path(name))
+        path = self._add_authority(self._normalize_path(name))
         return super().unstrip_protocol(path)
 
     @classmethod
