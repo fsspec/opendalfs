@@ -1,3 +1,6 @@
+import fsspec
+
+
 def _directory_behavior(fs, *, url: str, path: str, name_prefix: str) -> dict:
     fs.pipe_file(f"{url}/part.txt", b"one row")
 
@@ -41,28 +44,42 @@ def test_implicit_directory_behavior_matches_s3fs(s3_fs, s3fs_fs, s3_config):
     actual = _directory_behavior(
         s3_fs,
         url=f"opendal+s3://{bucket}/parity-dir",
-        path="parity-dir",
-        name_prefix="",
+        path=f"{bucket}/parity-dir",
+        name_prefix=f"{bucket}/",
     )
 
     assert actual == expected
 
 
-def test_arrow_reads_dataset_without_trailing_slash(s3_fs):
+def test_arrow_reads_dataset_without_trailing_slash(s3_fs, s3_config):
     import pyarrow as pa
     import pyarrow.dataset as ds
     import pyarrow.fs as pafs
     import pyarrow.parquet as pq
 
     arrow_fs = pafs.PyFileSystem(pafs.FSSpecHandler(s3_fs))
+    dataset_path = f"{s3_config.bucket}/arrow-dataset"
     pq.write_table(
         pa.table({"value": [1, 2, 3]}),
-        "arrow-dataset/part-0.parquet",
+        f"{dataset_path}/part-0.parquet",
         filesystem=arrow_fs,
     )
 
-    table = ds.dataset(
-        "arrow-dataset", filesystem=arrow_fs, format="parquet"
-    ).to_table()
+    table = ds.dataset(dataset_path, filesystem=arrow_fs, format="parquet").to_table()
 
     assert table.to_pydict() == {"value": [1, 2, 3]}
+
+
+def test_glob_result_reopens_as_service_url(s3_fs, s3_config):
+    data_url = f"opendal+s3://{s3_config.bucket}/glob-roundtrip/DataSet/records.jsonl"
+    s3_fs.pipe_file(data_url, b"one record")
+
+    [matched_path] = s3_fs.glob(
+        f"opendal+s3://{s3_config.bucket}/glob-roundtrip/**/*.jsonl",
+        detail=True,
+    )
+
+    assert matched_path == (f"{s3_config.bucket}/glob-roundtrip/DataSet/records.jsonl")
+    matched_url = s3_fs.unstrip_protocol(matched_path)
+    with fsspec.open(matched_url, **s3_fs.storage_options) as matched_file:
+        assert matched_file.read() == b"one record"

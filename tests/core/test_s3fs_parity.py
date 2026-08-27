@@ -26,8 +26,8 @@ def test_file_url_behavior_matches_s3fs(s3_fs, s3fs_fs, s3_config):
     actual = _file_behavior(
         s3_fs,
         url=f"opendal+s3://{bucket}/parity/file.txt",
-        path="parity/file.txt",
-        name_prefix="",
+        path=f"{bucket}/parity/file.txt",
+        name_prefix=f"{bucket}/",
     )
 
     assert actual == expected
