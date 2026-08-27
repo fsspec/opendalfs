@@ -29,8 +29,17 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         service = type(self).protocol.removeprefix("opendal+")
         super().__init__(service, *args, **kwargs)
 
+    @property
+    def _authority(self) -> str:
+        if self._authority_option is None:
+            return ""
+        return self.storage_options.get(self._authority_option, "")
+
     @classmethod
     def _strip_protocol(cls, path):
+        if isinstance(path, list):
+            return super()._strip_protocol(path)
+
         path = super()._strip_protocol(path)
         if cls._authority_option is None and path:
             return f"/{path.lstrip('/')}"
@@ -38,12 +47,9 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
 
     def _normalize_path(self, path: str) -> str:
         path = super()._normalize_path(path)
-        if self._authority_option is None:
-            return path
-
         # Service adapters expose authority/path, while the OpenDAL operator
         # is already scoped by the corresponding service option.
-        authority = self.storage_options.get(self._authority_option)
+        authority = self._authority
         if path == authority:
             return ""
         if authority and path.startswith(f"{authority}/"):
@@ -51,12 +57,7 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         return path
 
     def _to_fsspec_path(self, path: str) -> str:
-        if self._authority_option is None:
-            return f"/{path}" if path else ""
-
-        authority = self.storage_options.get(self._authority_option)
-        if not authority:
-            return path
+        authority = self._authority
         return f"{authority}/{path}" if path else authority
 
     async def _ls(self, path: str, detail=True, **kwargs):
@@ -75,14 +76,8 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         if name.startswith(f"{self.protocol}://"):
             return name
 
-        if self._authority_option is not None:
-            authority = self.storage_options.get(self._authority_option)
-            if authority:
-                path = self._normalize_path(name)
-                return f"{self.protocol}://{self._to_fsspec_path(path)}"
-
-        path = self._strip_protocol(name).lstrip("/")
-        return f"{self.protocol}:///{path}" if path else f"{self.protocol}:///"
+        path = self._to_fsspec_path(self._normalize_path(name))
+        return f"{self.protocol}://{path or '/'}"
 
     @classmethod
     def _get_kwargs_from_urls(cls, path: str) -> dict[str, Any]:

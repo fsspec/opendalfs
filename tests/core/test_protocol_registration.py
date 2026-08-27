@@ -72,6 +72,11 @@ def test_dynamic_service_paths_without_authority_match_fsspec_memory():
 
     protocol = register_opendal_service("memory")
     cls = get_filesystem_class(protocol)
+    assert cls._strip_protocol(["opendal+memory:///one", "opendal+memory://two"]) == [
+        "/one",
+        "/two",
+    ]
+
     opendal_fs = cls(skip_instance_cache=True)
     memory_fs = MemoryFileSystem(skip_instance_cache=True)
     root = "integration/path-contract"
