@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-DOCS_ROOT = Path(__file__).parents[2] / "docs"
+DOCS_ROOT = Path(__file__).parent
 PYTHON_BLOCK = re.compile(r"^```python\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 
 

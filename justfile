@@ -20,7 +20,7 @@ docs:
 
 # Execute every Python example embedded in the documentation.
 docs-examples:
-    uv run --group docs-examples pytest -q tests/docs
+    uv run --group docs-examples pytest -q docs/check_examples.py
 
 # Rebuild the documentation while files change and serve it locally.
 docs-serve:
