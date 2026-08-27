@@ -69,7 +69,9 @@ jobs:
         run: just install
 
       - name: Run unit tests
-        run: just unit
+        run: >-
+          just unit
+          --ignore=tests/integration/{airflow,kerchunk,prefect,rechunker,torchdata,xarray,zarr}
 
   latest-contract:
     name: Contract (latest fsspec)
@@ -122,4 +124,54 @@ jobs:
         run: just install
 
       - name: Run integration tests
-        run: just integration
+        run: >-
+          just integration
+          --ignore=tests/integration/{airflow,kerchunk,prefect,rechunker,torchdata,xarray,zarr}
+
+  downstream-integration:
+    name: Downstream integration (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Airflow
+            group: integration-airflow
+            tests: tests/integration/airflow
+          - name: Kerchunk
+            group: integration-kerchunk
+            tests: tests/integration/kerchunk
+          - name: Prefect
+            group: integration-prefect
+            tests: tests/integration/prefect
+          - name: Rechunker
+            group: integration-rechunker
+            tests: tests/integration/rechunker
+          - name: TorchData
+            group: integration-torchdata
+            tests: tests/integration/torchdata
+          - name: Xarray and Zarr
+            group: integration-xarray
+            tests: tests/integration/xarray tests/integration/zarr
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
+      - name: Install downstream integration dependencies
+        run: uv sync --locked --dev --group ${{ matrix.group }}
+
+      - name: Run downstream integration tests
+        env:
+          UV_NO_SYNC: "1"
+        run: just integration ${{ matrix.tests }}
