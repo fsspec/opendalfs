@@ -2,9 +2,21 @@ from opendalfs.registry import (
     OpendalAzBlobFileSystem,
     OpendalGCSFileSystem,
     OpendalS3FileSystem,
+    _OpendalServiceFileSystem,
     register_opendal_protocols,
     register_opendal_service,
 )
+
+
+class _ScopedMemoryFileSystem(_OpendalServiceFileSystem):
+    """Memory backend with a bucket-shaped external namespace for path tests."""
+
+    protocol = "opendal+memory"
+    _authority_option = "bucket"
+
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("bucket")
+        super().__init__(*args, **kwargs)
 
 
 def test_register_default_protocols():
@@ -101,3 +113,26 @@ def test_dynamic_service_paths_without_authority_match_fsspec_memory():
         return behavior
 
     assert path_behavior(opendal_fs) == path_behavior(memory_fs)
+
+
+def test_backend_key_can_start_with_the_authority(tmp_path):
+    fs = _ScopedMemoryFileSystem(bucket="bucket", skip_instance_cache=True)
+    directory = "bucket/bucket"
+    source = f"{directory}/source.txt"
+    copied = f"{directory}/copied.txt"
+    moved = f"{directory}/moved.txt"
+
+    fs.pipe_file(source, b"content")
+    with fs.open(source, "ab") as source_file:
+        assert source_file.path == source
+        source_file.write(b" appended")
+
+    download = tmp_path / "source.txt"
+    fs.get_file(source, download)
+    fs.cp_file(source, copied)
+    fs.mv(copied, moved)
+
+    assert download.read_bytes() == b"content appended"
+    assert fs.cat_file(moved) == b"content appended"
+    assert fs.info(moved)["name"] == moved
+    assert set(fs.ls(directory, detail=False)) == {source, moved}
