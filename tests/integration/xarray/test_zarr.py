@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-xr = pytest.importorskip("xarray")
+xr = pytest.importorskip("xarray", minversion="2026.7.0")
 
 
 def test_open_dataset_from_opendal_mapper(opendal_fs, opendal_root):
