@@ -1,20 +1,18 @@
-"""Compatibility cases migrated from PyTorch Lightning.
+"""Compatibility cases adapted from PyTorch Lightning.
 
 Source repository: https://github.com/Lightning-AI/pytorch-lightning
 Source release: lightning 2.6.5 (PyPI and Git tag 2.6.5)
 Source cases:
 - tests/tests_pytorch/trainer/connectors/test_checkpoint_connector.py:137-157,
   test_ckpt_for_fsspec
-- tests/tests_pytorch/models/test_restore.py:350-386,
-  test_running_test_pretrained_model_distrib_ddp_spawn
+- tests/tests_pytorch/models/test_restore.py:438-477,
+  test_load_model_from_checkpoint
 """
 
 import torch
 from lightning.pytorch import LightningModule, Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader, TensorDataset
-
-from opendalfs import register_opendal_service
 
 
 class TinyModel(LightningModule):
@@ -30,11 +28,11 @@ class TinyModel(LightningModule):
         return torch.optim.SGD(self.parameters(), lr=0.1)
 
 
-def test_model_checkpoint_roundtrip_through_opendal_url():
+def test_model_checkpoint_roundtrip_through_opendal_url(opendal_url):
     """Save and load a Lightning checkpoint through its fsspec URL entry point."""
-    register_opendal_service("memory")
+    checkpoint_dir = f"{opendal_url}/checkpoints"
     checkpoint = ModelCheckpoint(
-        dirpath="opendal+memory:///checkpoints",
+        dirpath=checkpoint_dir,
         filename="model",
     )
     trainer = Trainer(
@@ -51,8 +49,10 @@ def test_model_checkpoint_roundtrip_through_opendal_url():
         torch.tensor([[2.0]]),
     )
 
-    trainer.fit(TinyModel(), train_dataloaders=DataLoader(training_data))
+    model = TinyModel()
+    trainer.fit(model, train_dataloaders=DataLoader(training_data))
     restored = TinyModel.load_from_checkpoint(checkpoint.best_model_path)
 
-    assert checkpoint.best_model_path == "opendal+memory:///checkpoints/model.ckpt"
-    assert restored.state_dict().keys() == TinyModel().state_dict().keys()
+    assert checkpoint.best_model_path == f"{checkpoint_dir}/model.ckpt"
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(restored.state_dict()[name], value)

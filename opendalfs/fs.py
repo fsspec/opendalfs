@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import logging
 import os
+import posixpath
 from glob import has_magic
 from typing import Any
 
@@ -566,7 +567,7 @@ class OpendalFileSystem(AsyncFileSystem):
             self.dircache.pop(current, None)
             if not current:
                 break
-            current = self._parent(current)
+            current = posixpath.dirname(current)
         prefix = stripped + "/"
         for key in list(self.dircache):
             if key.startswith(prefix):

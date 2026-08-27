@@ -1,24 +1,15 @@
-"""dvc-objects compatibility cases migrated for issue #51.
+"""Exercise the dvc-objects fsspec entry point tracked by issue #51.
 
-Source: dvc-objects 5.2.0,
-``tests/fs/test_generic.py::test_copy`` and
-``tests/fs/test_localfs.py::test_walk``. The operations pass an opendalfs
-instance through dvc-objects' existing ``MemoryFileSystem(fs=...)`` entry point.
+dvc-objects 5.2.0 delegates these ``FileSystem`` operations to the wrapped
+fsspec filesystem. The test passes opendalfs through the existing
+``MemoryFileSystem(fs=...)`` entry point.
 """
 
 from dvc_objects.fs.memory import MemoryFileSystem
 
-from opendalfs import OpendalFileSystem
 
-
-def test_dvc_objects_find_walk_put_and_get(tmp_path):
-    fs = MemoryFileSystem(
-        fs=OpendalFileSystem(
-            scheme="memory",
-            asynchronous=False,
-            skip_instance_cache=True,
-        )
-    )
+def test_dvc_objects_find_walk_put_and_get(tmp_path, opendal_fs, opendal_root):
+    fs = MemoryFileSystem(fs=opendal_fs)
     sources = {
         tmp_path / "sources" / "one.txt": b"one",
         tmp_path / "sources" / "nested" / "two.txt": b"two",
@@ -27,15 +18,16 @@ def test_dvc_objects_find_walk_put_and_get(tmp_path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
 
-    remote_paths = ["dataset/one.txt", "dataset/nested/two.txt"]
+    remote_root = f"{opendal_root}/dvc-objects/dataset"
+    remote_paths = [f"{remote_root}/one.txt", f"{remote_root}/nested/two.txt"]
     fs.put([str(path) for path in sources], remote_paths)
 
-    assert set(fs.find("dataset")) == set(remote_paths)
+    assert set(fs.find(remote_root)) == set(remote_paths)
     assert [
-        (root, set(dirs), set(files)) for root, dirs, files in fs.walk("dataset")
+        (root, set(dirs), set(files)) for root, dirs, files in fs.walk(remote_root)
     ] == [
-        ("dataset", {"nested"}, {"one.txt"}),
-        ("dataset/nested", set(), {"two.txt"}),
+        (remote_root, {"nested"}, {"one.txt"}),
+        (f"{remote_root}/nested", set(), {"two.txt"}),
     ]
 
     downloads = [tmp_path / "downloads" / path for path in ("one.txt", "two.txt")]
