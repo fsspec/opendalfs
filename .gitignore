@@ -12,3 +12,4 @@ opendalfs.egg-info/
 dist/
 .coverage
 coverage.xml
+docs/_build/

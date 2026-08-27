@@ -114,6 +114,23 @@ _DYNAMIC_FILESYSTEMS: dict[str, type[_OpendalServiceFileSystem]] = {}
 
 
 def register_opendal_service(service: str) -> str:
+    """Register one OpenDAL service as an fsspec protocol.
+
+    Parameters
+    ----------
+    service : str
+        OpenDAL service name, such as ``"memory"``, ``"s3"``, or ``"oss"``.
+
+    Returns
+    -------
+    str
+        The registered protocol in the form ``"opendal+<service>"``.
+
+    Notes
+    -----
+    Registration applies to the current Python process. Repeating a
+    registration for the same service reuses the generated filesystem class.
+    """
     from fsspec.registry import register_implementation
 
     protocol = f"opendal+{service}"
@@ -138,6 +155,19 @@ def register_opendal_service(service: str) -> str:
 
 
 def register_opendal_protocols(services: list[str] | None = None) -> list[str]:
+    """Register a collection of OpenDAL services with fsspec.
+
+    Parameters
+    ----------
+    services : list of str, optional
+        OpenDAL service names to register. If omitted, registers the built-in
+        S3, Google Cloud Storage, and Azure Blob adapters.
+
+    Returns
+    -------
+    list of str
+        Registered protocol names in sorted order.
+    """
     if services is None:
         services = list(_BUILTIN_FILESYSTEMS)
 

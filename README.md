@@ -6,6 +6,9 @@
 
 `opendalfs` is a Python-based interface for file systems that enables interaction with different storage services by [Apache OpenDAL](https://github.com/apache/opendal). Through `opendalfs`, users can utilize fsspec's standard API to operate on all [storage services supported by OpenDAL](https://docs.rs/opendal/latest/opendal/services/index.html).
 
+Read the [opendalfs documentation](https://opendalfs.readthedocs.io/en/latest/)
+for installation, storage configuration, API details, and tested integrations.
+
 ## URL Protocols
 
 `opendalfs` registers multiple fsspec protocols in the form of `opendal+<service>`, for example:
@@ -38,69 +41,9 @@ receive their OpenDAL configuration through fsspec storage options.
 
 ## Installation
 
-### Basic Installation
-
 ```bash
 pip install opendalfs
 ```
-
-### Development Installation
-
-Install [uv](https://docs.astral.sh/uv/) and
-[just](https://just.systems/man/en/packages.html), then run:
-
-```bash
-just install
-```
-
-## Development Setup
-
-This project uses:
-
-- Python 3.12+ for the Python interface
-- ruff for code formatting and linting
-- ty for type checking
-- pytest for testing
-
-Run the local checks and unit tests with:
-
-```bash
-just check
-just unit
-```
-
-For development setup and guidelines, see our [Contributing Guide](https://github.com/fsspec/opendalfs/blob/main/CONTRIBUTING.md).
-
-## Benchmarks
-
-The benchmark script compares Arrow direct, opendalfs (fsspec), and s3fs (fsspec) on MinIO.
-
-```bash
-just install
-just bench --sizes 16,32,64 --files 4 --workers 4
-```
-
-Configure MinIO access via `OPENDAL_S3_ENDPOINT`, `OPENDAL_S3_BUCKET`,
-`OPENDAL_S3_REGION`, `OPENDAL_S3_ACCESS_KEY_ID`, and
-`OPENDAL_S3_SECRET_ACCESS_KEY`. Compose, tests, and benchmarks read the same
-values.
-
-The benchmark target starts MinIO from the root `docker-compose.yml`. Stop it
-when you finish:
-
-```bash
-just bench-down
-```
-
-For profiling, you can install a tool with `uv` (for example `py-spy`) and run:
-
-```bash
-uv tool install py-spy
-uv tool run py-spy record -o bench.svg -- python bench/bench_read_write.py --sizes 16,32,64 --files 4 --workers 4
-```
-
-High write concurrency can stall on some systems. If runs time out, reduce
-`--fsspec-workers`.
 
 ## Status
 
