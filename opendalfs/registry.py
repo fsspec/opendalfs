@@ -45,8 +45,8 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
             return f"/{path.lstrip('/')}"
         return path
 
-    def _normalize_path(self, path: str) -> str:
-        path = super()._normalize_path(path)
+    def _to_operator_path(self, path: str) -> str:
+        path = super()._to_operator_path(path)
         # Service adapters expose authority/path, while the OpenDAL operator
         # is already scoped by the corresponding service option.
         authority = self._authority
@@ -73,7 +73,7 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
         return {**info, "name": self._add_authority(info["name"])}
 
     def unstrip_protocol(self, name: str) -> str:
-        path = self._add_authority(self._normalize_path(name))
+        path = self._add_authority(self._to_operator_path(name))
         return super().unstrip_protocol(path)
 
     @classmethod
