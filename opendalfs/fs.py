@@ -129,23 +129,6 @@ class OpendalFileSystem(AsyncFileSystem):
             return self._directory_path(normalized)
         return normalized
 
-    def _ls_from_cache(self, path: str):
-        """Look up an OpenDAL-relative path in the listings cache."""
-        path = path.rstrip("/")
-        try:
-            return self.dircache[path]
-        except KeyError:
-            pass
-
-        parent = posixpath.dirname(path)
-        try:
-            files = [info for info in self.dircache[parent] if info["name"] == path]
-        except KeyError:
-            return None
-        if not files:
-            raise FileNotFoundError(path)
-        return files
-
     # Async implementations using Rust's async methods directly
     #
     async def _ls(self, path: str, detail=True, **kwargs):
