@@ -13,3 +13,4 @@ dist/
 .coverage
 coverage.xml
 docs/_build/
+docs/contributing/development.md

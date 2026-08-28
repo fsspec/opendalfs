@@ -44,7 +44,7 @@ An integration page should follow a passing test, not precede one. Add the
 smallest test that exercises the library's public fsspec entry point, then
 document the same construction style and state what the test covers.
 
-See {doc}`../contributing/documentation` for the page checklist.
+See {doc}`../contributing/development` for the page checklist.
 
 ```{toctree}
 :hidden:

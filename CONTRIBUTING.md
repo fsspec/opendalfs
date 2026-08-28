@@ -2,37 +2,28 @@
 
 opendalfs is a Python package built on the Apache OpenDAL Python bindings.
 
-## Development Setup
+## Development setup
 
-1. Clone the repository:
+Clone the repository:
 
 ```shell
 git clone https://github.com/fsspec/opendalfs.git
 cd opendalfs
 ```
 
-2. Install [uv](https://docs.astral.sh/uv/) and
-   [just](https://just.systems/man/en/packages.html), then install the locked
-   development environment:
+Install [uv](https://docs.astral.sh/uv/) and
+[just](https://just.systems/man/en/packages.html), then create the locked
+development environment:
 
 ```shell
 just install
 ```
 
-### Dependency Groups
-
-The project uses several dependency groups:
-
-- `dev`: Development tools (Ruff and ty)
-- `test`: Testing tools (pytest, pytest-asyncio, pytest-cov, s3fs, boto3)
-- `bench`: Benchmark tools (pyarrow, s3fs, boto3)
-- `all`: All dependencies combined
-
 Run `just --list` to list the supported development commands.
 
 ## Testing
 
-### Unit Tests
+### Unit tests
 
 Run tests that do not require S3:
 
@@ -46,7 +37,7 @@ Pass additional pytest options as recipe arguments, for example:
 just unit -x
 ```
 
-### Integration Tests
+### Integration tests
 
 Run the complete test suite with the repository's root `docker-compose.yml`:
 
@@ -73,6 +64,59 @@ To run the complete suite against services you already manage, use:
 just test
 ```
 
+Optional downstream integrations use separate dependency groups because some
+of their requirements conflict. The test workflow shows the group used for
+each integration.
+
+## Code quality
+
+Run the same formatting, linting, and type checks used by CI:
+
+```shell
+just check
+```
+
+## Documentation
+
+The documentation source is Markdown parsed by MyST and built by Sphinx. Run
+the strict build and the examples available in the documentation environment:
+
+```shell
+just docs
+just docs-examples
+```
+
+The HTML output is written to `docs/_build/html`. Use the live-reload server
+while editing:
+
+```shell
+just docs-serve
+```
+
+Integration pages with conflicting optional dependencies run in separate CI
+jobs. To run one of those pages locally, select its dependency group:
+
+```shell
+DOCS_EXAMPLE_GROUP=integration-prefect \
+  uv run --group integration-prefect pytest -q docs/check_examples.py
+```
+
+Keep each documentation page focused on one reader need:
+
+- A tutorial leads a new user to a working result.
+- A how-to guide solves a specific task.
+- An explanation describes how or why the adapter behaves as it does.
+- A reference page records options, protocols, compatibility, or API details.
+
+Add or update an integration test before claiming compatibility. An integration
+page should use the library's public fsspec entry form, include a runnable
+example based on the test, state the operations covered by CI, record relevant
+limits, and link to the test file.
+
+OpenDAL owns service configuration and backend capability details. fsspec owns
+the generic filesystem contract. Link to those references instead of copying
+tables that can drift.
+
 ## Benchmarks
 
 Run the benchmark against the same root Compose service:
@@ -84,16 +128,8 @@ just bench
 Pass benchmark options as recipe arguments. The service remains available for
 repeated runs; stop it with `just bench-down` when finished.
 
-## Code Quality
-
-Run the same formatting, linting, and type checks used by CI:
-
-```shell
-just check
-```
-
 ## CI/CD
 
-Our GitHub Actions workflow runs tests with coverage against MinIO.
+GitHub Actions runs quality checks, the test matrix, and documentation builds.
 
 See `.github/workflows/` for detailed configurations.

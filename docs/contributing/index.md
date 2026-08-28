@@ -1,11 +1,10 @@
 # Contributing
 
-Development setup and test commands live in the repository's
-[contributing guide](https://github.com/fsspec/opendalfs/blob/main/CONTRIBUTING.md).
-The page below covers the Sphinx site and the requirements for documenting an
-integration.
+The development guide below is copied from the repository's root
+`CONTRIBUTING.md` each time Sphinx builds the site. Edit the root file so the
+repository and hosted documentation stay in sync.
 
 ```{toctree}
 
-documentation
+Development guide <development>
 ```
