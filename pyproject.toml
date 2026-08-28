@@ -1,20 +1,40 @@
 [project]
 name = "opendalfs"
 dynamic = ["version"]
+description = "A fsspec filesystem backed by Apache OpenDAL."
+authors = [
+    { name = "opendalfs contributors" },
+]
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["filesystem", "fsspec", "opendal", "storage"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Filesystems",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.12,<4.0"
 dependencies = [
     "fsspec",
     "opendal>=0.47.5,<0.48",
 ]
+
+[project.urls]
+Homepage = "https://opendalfs.readthedocs.io/"
+Documentation = "https://opendalfs.readthedocs.io/"
+Repository = "https://github.com/fsspec/opendalfs"
+Issues = "https://github.com/fsspec/opendalfs/issues"
+Changelog = "https://github.com/fsspec/opendalfs/releases"
 
 [project.entry-points."fsspec.specs"]
 "opendal+s3" = "opendalfs.registry:OpendalS3FileSystem"
