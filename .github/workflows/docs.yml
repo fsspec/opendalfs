@@ -1,0 +1,59 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
+      - name: Install documentation dependencies
+        run: uv sync --locked --group docs --group docs-examples
+
+      - name: Build documentation
+        run: just docs
+
+      - name: Run documentation examples
+        run: just docs-examples
+
+  publish:
+    name: Trigger Read the Docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger the latest documentation build
+        env:
+          RTD_WEBHOOK_TOKEN: ${{ secrets.RTD_WEBHOOK_TOKEN }}
+          RTD_WEBHOOK_URL: ${{ secrets.RTD_WEBHOOK_URL }}
+        run: >-
+          curl --fail-with-body --retry 3
+          --data-urlencode "token=${RTD_WEBHOOK_TOKEN}"
+          --data-urlencode "branches=latest"
+          --data-urlencode "default_branch=main"
+          "${RTD_WEBHOOK_URL}"

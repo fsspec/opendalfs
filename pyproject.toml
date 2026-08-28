@@ -27,6 +27,15 @@ bench = [
     "pyarrow>=22.0.0",
     "s3fs>=2025.5.1",
 ]
+docs = [
+    "myst-parser>=4.0.1",
+    "numpydoc>=1.9.0",
+    "pydata-sphinx-theme>=0.21.0",
+    "sphinx>=8.2.3",
+    "sphinx-autobuild>=2024.10.3",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.1",
+]
 test = [
     "boto3>=1.37.3",
     "dask[dataframe]==2026.8.0",
@@ -56,6 +65,10 @@ integration-xarray = [
     "xarray==2026.7.0",
     "zarr==3.3.0",
 ]
+docs-examples = [
+    { include-group = "test" },
+    { include-group = "integration-xarray" },
+]
 integration-prefect = [
     "prefect==3.8.4; python_version < '3.15'",
 ]
@@ -67,6 +80,7 @@ integration-torchdata = [
 ]
 dev = [
     { include-group = "bench" },
+    { include-group = "docs" },
     { include-group = "test" },
     "ruff>=0.16.4",
     "ty>=0.0.74",

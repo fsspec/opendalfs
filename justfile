@@ -14,6 +14,18 @@ check:
     uv run ruff check .
     uv run ty check
 
+# Build the documentation and treat warnings as errors.
+docs:
+    uv run --group docs sphinx-build -W --keep-going -n -b html docs docs/_build/html
+
+# Execute every Python example embedded in the documentation.
+docs-examples:
+    uv run --group docs-examples pytest -q docs/check_examples.py
+
+# Rebuild the documentation while files change and serve it locally.
+docs-serve:
+    uv run --group docs sphinx-autobuild -W -n docs docs/_build/html
+
 # Run the complete test suite against available services.
 test *args:
     uv run pytest -v "$@"
