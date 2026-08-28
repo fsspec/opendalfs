@@ -1,4 +1,6 @@
 from importlib.metadata import version as package_version
+from pathlib import Path
+from shutil import copyfile
 
 project = "opendalfs"
 author = "opendalfs contributors"
@@ -49,3 +51,13 @@ html_context = {
     "github_version": "main",
     "doc_path": "docs",
 }
+
+
+def copy_contributing_guide(app):
+    source = Path(app.srcdir).parent / "CONTRIBUTING.md"
+    destination = Path(app.srcdir) / "contributing" / "development.md"
+    copyfile(source, destination)
+
+
+def setup(app):
+    app.connect("builder-inited", copy_contributing_guide)
