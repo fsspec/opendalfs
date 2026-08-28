@@ -74,22 +74,3 @@ jobs:
         env:
           DOCS_EXAMPLE_GROUP: ${{ matrix.group }}
         run: uv run --no-sync pytest -q docs/check_examples.py
-
-  publish:
-    name: Trigger Read the Docs
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-
-    steps:
-      - name: Trigger the latest documentation build
-        env:
-          RTD_WEBHOOK_TOKEN: ${{ secrets.RTD_WEBHOOK_TOKEN }}
-          RTD_WEBHOOK_URL: ${{ secrets.RTD_WEBHOOK_URL }}
-        run: >-
-          curl --fail-with-body --retry 3
-          --data-urlencode "token=${RTD_WEBHOOK_TOKEN}"
-          --data-urlencode "branches=latest"
-          --data-urlencode "default_branch=main"
-          "${RTD_WEBHOOK_URL}"
