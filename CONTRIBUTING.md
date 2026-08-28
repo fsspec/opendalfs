@@ -19,6 +19,8 @@ development environment:
 just install
 ```
 
+Integration tests and benchmarks also require Docker with the Compose plugin.
+
 Run `just --list` to list the supported development commands.
 
 ## Testing
