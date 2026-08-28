@@ -4,11 +4,9 @@
 [![Tests](https://github.com/fsspec/opendalfs/actions/workflows/tests.yml/badge.svg)](https://github.com/fsspec/opendalfs/actions/workflows/tests.yml)
 [![License](https://img.shields.io/github/license/fsspec/opendalfs)](https://github.com/fsspec/opendalfs/blob/main/LICENSE)
 
-`opendalfs` brings [Apache OpenDAL](https://opendal.apache.org/)'s unified
-storage access to the [fsspec](https://filesystem-spec.readthedocs.io/)
-ecosystem. Applications use one filesystem API across OpenDAL-supported
-services, while OpenDAL handles service clients, credentials, and
-backend-specific configuration.
+`opendalfs` is a [fsspec](https://filesystem-spec.readthedocs.io/) filesystem
+backed by [Apache OpenDAL](https://opendal.apache.org/). It lets Python libraries
+that work with fsspec use storage services supported by OpenDAL.
 
 **Documentation:** [opendalfs.readthedocs.io](https://opendalfs.readthedocs.io/)
 
