@@ -14,16 +14,16 @@ by that test. It is not a claim about every feature or every OpenDAL service.
 | {doc}`pyarrow` | filesystem adapter | Parquet dataset read and write |
 | {doc}`xarray` | mapper | Zarr dataset read and write |
 | {doc}`zarr` | URL-backed store | Zarr array read and write |
-| Airflow | URL path | `ObjectStoragePath` read, write, and unlink |
-| DVC Objects | filesystem | find, walk, put, and get |
-| Hugging Face Datasets | URL | JSON dataset loading |
-| Intake | URL | Catalog and CSV loading |
-| Kerchunk | URL, file-like object | HDF5 to Zarr reference generation |
-| PyTorch Lightning | URL | Checkpoint save and restore |
-| Prefect | URL | Remote filesystem read and write |
-| Rechunker | mapper | Rechunk between fsspec mappings |
-| TorchData | URL | File listing and opening data pipes |
-| universal_pathlib | URL path | Read, write, listing, and existence checks |
+| {doc}`airflow` | URL path | `ObjectStoragePath` read, write, and unlink |
+| {doc}`dvc-objects` | filesystem | find, walk, put, and get |
+| {doc}`huggingface-datasets` | URL | JSON dataset loading |
+| {doc}`intake` | URL | Catalog and CSV loading |
+| {doc}`kerchunk` | URL, file-like object | HDF5 to Zarr reference generation |
+| {doc}`pytorch-lightning` | URL | Checkpoint save and restore |
+| {doc}`prefect` | URL | Remote filesystem read and write |
+| {doc}`rechunker` | mapper | Rechunk between fsspec mappings |
+| {doc}`torchdata` | URL | File listing and opening data pipes |
+| {doc}`universal-pathlib` | URL path | Read, write, listing, and existence checks |
 
 ## Choosing an entry form
 
@@ -54,4 +54,14 @@ dask
 pyarrow
 xarray
 zarr
+airflow
+dvc-objects
+huggingface-datasets
+intake
+kerchunk
+prefect
+pytorch-lightning
+rechunker
+torchdata
+universal-pathlib
 ```

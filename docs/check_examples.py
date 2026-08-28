@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 
@@ -5,14 +6,23 @@ import pytest
 
 DOCS_ROOT = Path(__file__).parent
 PYTHON_BLOCK = re.compile(r"^```python\n(.*?)^```$", re.MULTILINE | re.DOTALL)
+EXAMPLE_GROUP = re.compile(r"<!-- docs-example-group: ([a-z0-9-]+) -->")
 
 
 def python_example_files():
-    return [
-        path
-        for path in sorted(DOCS_ROOT.rglob("*.md"))
-        if PYTHON_BLOCK.search(path.read_text())
-    ]
+    active_group = os.environ.get("DOCS_EXAMPLE_GROUP")
+    paths = []
+
+    for path in sorted(DOCS_ROOT.rglob("*.md")):
+        content = path.read_text()
+        if not PYTHON_BLOCK.search(content):
+            continue
+
+        marker = EXAMPLE_GROUP.search(content)
+        if (marker.group(1) if marker else None) == active_group:
+            paths.append(path)
+
+    return paths
 
 
 @pytest.mark.parametrize(
