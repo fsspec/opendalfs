@@ -1,67 +1,88 @@
 # opendalfs
 
-[![Discussions](https://img.shields.io/github/discussions/fsspec/opendalfs)](https://github.com/fsspec/opendalfs/discussions)
+[![PyPI](https://img.shields.io/pypi/v/opendalfs)](https://pypi.org/project/opendalfs/)
 [![Tests](https://github.com/fsspec/opendalfs/actions/workflows/tests.yml/badge.svg)](https://github.com/fsspec/opendalfs/actions/workflows/tests.yml)
+[![License](https://img.shields.io/github/license/fsspec/opendalfs)](https://github.com/fsspec/opendalfs/blob/main/LICENSE)
 
+`opendalfs` is a [fsspec](https://filesystem-spec.readthedocs.io/) filesystem
+backed by [Apache OpenDAL](https://opendal.apache.org/). It lets Python libraries
+that work with fsspec use storage services supported by OpenDAL.
 
-`opendalfs` is a Python-based interface for file systems that enables interaction with different storage services by [Apache OpenDAL](https://github.com/apache/opendal). Through `opendalfs`, users can utilize fsspec's standard API to operate on all [storage services supported by OpenDAL](https://docs.rs/opendal/latest/opendal/services/index.html).
+**Documentation:** [opendalfs.readthedocs.io](https://opendalfs.readthedocs.io/)
 
-Read the [opendalfs documentation](https://opendalfs.readthedocs.io/en/latest/)
-for installation, storage configuration, API details, and tested integrations.
+## Installation
 
-## URL Protocols
+`opendalfs` requires Python 3.12 or newer.
 
-`opendalfs` registers multiple fsspec protocols in the form of `opendal+<service>`, for example:
+```console
+pip install opendalfs
+```
+
+## Quick start
+
+The OpenDAL memory service provides a small example that needs no credentials
+and writes nothing to disk:
+
+```python
+from opendalfs import OpendalFileSystem
+
+fs = OpendalFileSystem("memory")
+fs.pipe_file("hello.txt", b"hello from opendalfs\n")
+
+assert fs.cat_file("hello.txt") == b"hello from opendalfs\n"
+```
+
+`OpendalFileSystem` implements the fsspec filesystem interface, including
+methods such as `open`, `ls`, `glob`, `info`, and `rm`.
+
+## Connect to storage
+
+The package registers fsspec protocols for S3, Google Cloud Storage, and Azure
+Blob Storage:
 
 ```python
 import fsspec
 
-f = fsspec.open(
-    "opendal+s3://my-bucket/path/to/file",
-    mode="rb",
-    endpoint="http://localhost:9000",
-    access_key_id="minioadmin",
-    secret_access_key="minioadmin",
+fs = fsspec.filesystem(
+    "opendal+s3",
+    bucket="my-bucket",
+    region="us-east-1",
 )
 ```
 
-The URL host is mapped to the service container (e.g. `bucket` for `s3`/`gcs`, `container` for `azblob`), and the URL path is used as the object key.
+These protocols also work in URLs accepted by fsspec-compatible libraries:
 
-For other OpenDAL services, register protocols at runtime:
+```text
+opendal+s3://my-bucket/path/to/file
+opendal+gcs://my-bucket/path/to/file
+opendal+azblob://my-container/path/to/file
+```
+
+Register other OpenDAL services at runtime:
 
 ```python
-import opendalfs
+import fsspec
 
-opendalfs.register_opendal_service("oss")
+from opendalfs import register_opendal_service
+
+protocol = register_opendal_service("memory")
+fs = fsspec.filesystem(protocol)
 ```
 
-Services such as OSS that use the URL authority as an OpenDAL configuration
-option are detected automatically. Other services use root-relative URLs and
-receive their OpenDAL configuration through fsspec storage options.
+Service options are passed to OpenDAL without being renamed. See the
+[documentation](https://opendalfs.readthedocs.io/) for storage configuration,
+URL rules, supported operations, tested integrations, and the API reference.
 
-## Installation
+## Community
 
-```bash
-pip install opendalfs
-```
-
-## Status
-
-See [Tracking issues of 0.1.0 version for opendalfs](https://github.com/fsspec/opendalfs/issues/6)
-
-## Contributing
-
-opendalfs is an exciting project currently under active development. Whether you're looking to use it in your projects or contribute to its growth, there are several ways you can get involved:
-
-- Follow the [Contributing Guide](https://github.com/fsspec/opendalfs/blob/main/CONTRIBUTING.md) to contribute
-- Create new [Issue](https://github.com/fsspec/opendalfs/issues/new) for bug reports or feature requests
-- Join discussions in [Discussions](https://github.com/fsspec/opendalfs/discussions)
-
-## Getting Help
-
-- Submit [issues](https://github.com/fsspec/opendalfs/issues/new/choose) for bug reports
-- Ask questions in [discussions](https://github.com/fsspec/opendalfs/discussions/new?category=q-a)
+- Read the [contributing guide](https://github.com/fsspec/opendalfs/blob/main/CONTRIBUTING.md)
+  to set up a development environment and submit changes.
+- Open an [issue](https://github.com/fsspec/opendalfs/issues/new/choose) for bugs
+  and feature requests.
+- Use [GitHub Discussions](https://github.com/fsspec/opendalfs/discussions) for
+  questions and general discussion.
 
 ## License
 
-Licensed under [Apache License, Version 2.0](https://github.com/fsspec/opendalfs/blob/main/LICENSE).
+`opendalfs` is licensed under the
+[Apache License 2.0](https://github.com/fsspec/opendalfs/blob/main/LICENSE).
