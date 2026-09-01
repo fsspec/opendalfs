@@ -32,7 +32,7 @@ def python_example_files():
 @pytest.fixture(scope="session", autouse=True)
 def s3_example_bucket():
     paths = python_example_files()
-    if not any("opendal+s3://" in path.read_text() for path in paths):
+    if not any("opendal+s3" in path.read_text() for path in paths):
         yield
         return
 
