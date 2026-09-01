@@ -14,7 +14,7 @@ by that test. It is not a claim about every feature or every OpenDAL service.
 | {doc}`pyarrow` | filesystem adapter | Parquet dataset read and write |
 | {doc}`xarray` | mapper | Zarr dataset read and write |
 | {doc}`zarr` | URL-backed store | Zarr array read and write |
-| {doc}`airflow` | URL path | `ObjectStoragePath` read, write, and unlink |
+| {doc}`airflow` | attached filesystem | `ObjectStoragePath` read, write, and unlink |
 | {doc}`dvc-objects` | filesystem | find, walk, put, and get |
 | {doc}`huggingface-datasets` | URL | JSON dataset loading |
 | {doc}`intake` | URL | Catalog and CSV loading |
@@ -37,6 +37,17 @@ and the service root.
 Use `fs.get_mapper(path)` for libraries that expect a mutable mapping, notably
 Zarr-based workflows. PyArrow has its own filesystem interface and provides an
 `FSSpecHandler` adapter.
+
+URL examples use the repository's MinIO defaults. Replace those local settings
+with your service configuration in an application. Start MinIO from the
+repository root before running the examples:
+
+```console
+podman compose up -d --wait
+just docs-examples
+```
+
+The documentation test harness creates the bucket when needed.
 
 ## Adding an integration
 

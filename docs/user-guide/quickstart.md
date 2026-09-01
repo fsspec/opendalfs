@@ -45,34 +45,9 @@ with fs.open("demo/notes.txt", "rt") as stream:
     assert stream.read() == "written through fsspec\n"
 ```
 
-## Use an fsspec URL
-
-Services without a built-in entry point can be registered at runtime. Register
-the memory service, then let fsspec resolve its URL:
-
-```python
-import fsspec
-
-from opendalfs import register_opendal_service
-
-register_opendal_service("memory")
-
-url = "opendal+memory:///hello.txt"
-url_fs, path = fsspec.core.url_to_fs(url)
-
-with url_fs.open(path, "wb") as stream:
-    stream.write(b"hello through a URL\n")
-
-with url_fs.open(path, "rb") as stream:
-    assert stream.read() == b"hello through a URL\n"
-```
-
-`url_to_fs` resolves the protocol and returns both the filesystem and the path
-inside it. Reuse that filesystem while working with the in-memory service
-because memory contents belong to the operator that created them.
-
 ## Connect real storage
 
-The filesystem operations do not change when you switch services. The next
-guide explains the available construction styles and where service options go:
+The filesystem operations do not change when you switch services. S3, GCS, and
+Azure Blob also provide fsspec URLs for libraries that require one. The next
+guide explains the available entry points and where service options go:
 {doc}`connecting-to-storage`.

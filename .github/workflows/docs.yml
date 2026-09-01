@@ -37,7 +37,9 @@ jobs:
         run: just docs
 
       - name: Run documentation examples
-        run: just docs-examples
+        env:
+          UV_NO_SYNC: "1"
+        run: just integration docs/check_examples.py
 
   integration-examples:
     name: Integration examples (${{ matrix.name }})
@@ -73,4 +75,5 @@ jobs:
       - name: Run integration page examples
         env:
           DOCS_EXAMPLE_GROUP: ${{ matrix.group }}
-        run: uv run --no-sync pytest -q docs/check_examples.py
+          UV_NO_SYNC: "1"
+        run: just integration docs/check_examples.py

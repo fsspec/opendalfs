@@ -1,6 +1,6 @@
 # PyTorch Lightning
 
-PyTorch Lightning accepts fsspec URLs for model checkpoints. Register the
+PyTorch Lightning accepts fsspec URLs for model checkpoints. Configure the
 OpenDAL service before constructing the trainer.
 
 ## Save and restore a checkpoint
@@ -11,8 +11,6 @@ import torch
 from lightning.pytorch import LightningModule, Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader, TensorDataset
-
-from opendalfs import register_opendal_service
 
 
 class TinyModel(LightningModule):
@@ -28,9 +26,14 @@ class TinyModel(LightningModule):
         return torch.optim.SGD(self.parameters(), lr=0.1)
 
 
-protocol = register_opendal_service("memory")
-fsspec.filesystem(protocol)
-checkpoint_dir = "opendal+memory:///lightning/checkpoints"
+protocol = "opendal+s3"
+fsspec.config.conf[protocol] = {
+    "endpoint": "http://127.0.0.1:9000",
+    "region": "us-east-1",
+    "access_key_id": "minioadmin",
+    "secret_access_key": "minioadmin",
+}
+checkpoint_dir = f"{protocol}://test-bucket/lightning/checkpoints"
 checkpoint = ModelCheckpoint(dirpath=checkpoint_dir, filename="model")
 trainer = Trainer(
     max_epochs=1,

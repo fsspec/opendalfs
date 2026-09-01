@@ -7,13 +7,17 @@ interface.
 
 ```python
 import fsspec
+from opendalfs import S3FileSystem
 from upath import UPath
 
-from opendalfs import register_opendal_service
-
-protocol = register_opendal_service("memory")
-fs = fsspec.filesystem(protocol, skip_instance_cache=True)
-root = UPath("universal-pathlib", protocol=protocol, **fs.storage_options)
+fsspec.register_implementation("s3", S3FileSystem, clobber=True)
+fsspec.config.conf["s3"] = {
+    "endpoint_url": "http://127.0.0.1:9000",
+    "client_kwargs": {"region_name": "us-east-1"},
+    "key": "minioadmin",
+    "secret": "minioadmin",
+}
+root = UPath("s3://test-bucket/universal-pathlib")
 
 folder = root / "results"
 folder.mkdir(parents=True)

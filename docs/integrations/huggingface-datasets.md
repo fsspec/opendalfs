@@ -1,6 +1,6 @@
 # Hugging Face Datasets
 
-Hugging Face Datasets can load data from a registered `opendal+` URL in both
+Hugging Face Datasets can load data from an installed `opendal+s3` URL in both
 eager and streaming modes.
 
 ## Load JSON Lines from a URL
@@ -11,11 +11,14 @@ from pathlib import Path
 import fsspec
 from datasets import load_dataset
 
-from opendalfs import register_opendal_service
-
-protocol = register_opendal_service("fs")
-storage_options = {"root": str(Path("storage").resolve())}
-data_url = "opendal+fs:///datasets/records.jsonl"
+protocol = "opendal+s3"
+storage_options = {
+    "endpoint": "http://127.0.0.1:9000",
+    "region": "us-east-1",
+    "access_key_id": "minioadmin",
+    "secret_access_key": "minioadmin",
+}
+data_url = f"{protocol}://test-bucket/datasets/records.jsonl"
 
 with fsspec.open(data_url, "wb", **storage_options) as stream:
     stream.write(b'{"text":"first","label":0}\n')
@@ -37,8 +40,7 @@ assert list(dataset) == [
 
 ## Test coverage
 
-The repository runs this case in eager and streaming modes against local
-filesystem and S3-compatible backends.
+The repository runs this case in eager and streaming modes against MinIO.
 
 See
 [`tests/integration/huggingface_datasets/test_load_dataset.py`](https://github.com/fsspec/opendalfs/blob/main/tests/integration/huggingface_datasets/test_load_dataset.py).
