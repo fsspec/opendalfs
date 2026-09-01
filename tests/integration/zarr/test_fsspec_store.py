@@ -6,10 +6,12 @@ import pytest
 zarr = pytest.importorskip("zarr", minversion="3.3.0")
 
 
-def test_array_roundtrip_through_fsspec_store_url(opendal_url, opendal_storage_options):
+def test_array_roundtrip_through_fsspec_store_url(
+    opendal_s3_url, opendal_s3_storage_options
+):
     store = zarr.storage.FsspecStore.from_url(
-        f"{opendal_url}/zarr/array",
-        storage_options=opendal_storage_options,
+        f"{opendal_s3_url}/zarr/array",
+        storage_options=opendal_s3_storage_options,
     )
     expected = np.arange(6)
 

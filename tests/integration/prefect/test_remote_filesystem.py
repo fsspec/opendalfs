@@ -6,13 +6,11 @@ prefect_filesystems = pytest.importorskip("prefect.filesystems")
 
 
 @pytest.mark.asyncio
-async def test_remote_filesystem_roundtrip_through_opendal_url(opendal_fs, opendal_url):
-    # Prefect requires a non-empty URL location; fsspec accepts this equivalent
-    # double-slash form for OpenDAL services without an authority.
-    basepath = f"{opendal_url}/prefect/storage".replace(":///", "://", 1)
+async def test_remote_filesystem_roundtrip_through_opendal_url(s3_fs, opendal_s3_url):
+    basepath = f"{opendal_s3_url}/prefect/storage"
     filesystem = prefect_filesystems.RemoteFileSystem(
         basepath=basepath,
-        settings=opendal_fs.storage_options,
+        settings=s3_fs.storage_options,
     )
 
     path = await filesystem.write_path("nested/result.txt", b"hello from Prefect")

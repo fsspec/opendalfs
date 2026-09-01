@@ -14,18 +14,21 @@ import pandas.testing as tm
 
 
 def test_read_csv_url_glob_and_tokenization(
-    opendal_fs, opendal_root, opendal_url, opendal_storage_options
+    s3_fs,
+    opendal_s3_root,
+    opendal_s3_url,
+    opendal_s3_storage_options,
 ):
     files = {
         "2014-01-01.csv": b"name,amount,id\nAlice,100,1\nBob,200,2\n",
         "2014-01-02.csv": b"name,amount,id\nCharlie,300,3\n",
     }
     for name, content in files.items():
-        opendal_fs.pipe_file(f"{opendal_root}/dask/{name}", content)
+        s3_fs.pipe_file(f"{opendal_s3_root}/dask/{name}", content)
 
-    url = f"{opendal_url}/dask/2014-01-*.csv"
-    first = dd.read_csv(url, storage_options=opendal_storage_options)
-    second = dd.read_csv(url, storage_options=opendal_storage_options)
+    url = f"{opendal_s3_url}/dask/2014-01-*.csv"
+    first = dd.read_csv(url, storage_options=opendal_s3_storage_options)
+    second = dd.read_csv(url, storage_options=opendal_s3_storage_options)
     expected = pd.DataFrame({
         "name": ["Alice", "Bob", "Charlie"],
         "amount": [100, 200, 300],
@@ -42,15 +45,18 @@ def test_read_csv_url_glob_and_tokenization(
 
 
 def test_read_parquet_url(
-    opendal_fs, opendal_root, opendal_url, opendal_storage_options
+    s3_fs,
+    opendal_s3_root,
+    opendal_s3_url,
+    opendal_s3_storage_options,
 ):
     expected = pd.DataFrame({"a": range(10)})
-    path = f"{opendal_root}/dask/url.parquet"
-    expected.to_parquet(path, filesystem=opendal_fs)
+    path = f"{opendal_s3_root}/dask/url.parquet"
+    expected.to_parquet(path, filesystem=s3_fs)
 
     result = dd.read_parquet(
-        f"{opendal_url}/dask/url.parquet",
-        storage_options=opendal_storage_options,
+        f"{opendal_s3_url}/dask/url.parquet",
+        storage_options=opendal_s3_storage_options,
     ).compute()
 
     tm.assert_frame_equal(result, expected)

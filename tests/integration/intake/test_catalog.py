@@ -6,9 +6,9 @@ import pandas as pd
 import pandas.testing as tm
 
 
-def test_catalog_reads_csv_from_opendal(opendal_url):
-    catalog_url = f"{opendal_url}/intake/catalog.yml"
-    data_url = f"{opendal_url}/intake/file.csv"
+def test_catalog_reads_csv_from_opendal(opendal_s3_url):
+    catalog_url = f"{opendal_s3_url}/intake/catalog.yml"
+    data_url = f"{opendal_s3_url}/intake/file.csv"
     expected = pd.DataFrame({"a": [0], "b": [1]})
 
     with fsspec.open(data_url, "wt") as stream:

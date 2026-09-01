@@ -19,29 +19,51 @@ def hdf_dataset(tmp_path):
     return expected, local_path.read_bytes()
 
 
-@pytest.mark.parametrize("entry_style", ["url", "open-file"])
-def test_single_hdf5_to_zarr_from_opendalfs(
+def test_single_hdf5_to_zarr_from_url(
     hdf_dataset,
-    entry_style,
-    opendal_fs,
-    opendal_root,
-    opendal_url,
+    s3_fs,
+    opendal_s3_root,
+    opendal_s3_url,
 ):
-    """Build and read references using kerchunk's two supported HDF inputs.
+    """Build and read references through an installed OpenDAL URL.
 
-    Adapted from kerchunk 0.2.10 ``tests/test_hdf.py::test_times`` and
-    ``test_times_str``.
+    Adapted from kerchunk 0.2.10 ``tests/test_hdf.py::test_times_str``.
     """
     expected, payload = hdf_dataset
-    path = f"{opendal_root}/kerchunk-{entry_style}/source.nc"
-    url = f"{opendal_url}/kerchunk-{entry_style}/source.nc"
-    opendal_fs.pipe_file(path, payload)
+    path = f"{opendal_s3_root}/kerchunk-url/source.nc"
+    url = f"{opendal_s3_url}/kerchunk-url/source.nc"
+    s3_fs.pipe_file(path, payload)
 
-    if entry_style == "url":
-        translator = kerchunk_hdf.SingleHdf5ToZarr(url)
-    else:
-        source = opendal_fs.open(path, "rb")
-        translator = kerchunk_hdf.SingleHdf5ToZarr(source, url)
+    translator = kerchunk_hdf.SingleHdf5ToZarr(url)
+
+    try:
+        references = translator.translate()
+    finally:
+        translator.close()
+
+    result = xr.open_dataset(
+        kerchunk_utils.refs_as_store(references, fs=s3_fs),
+        engine="zarr",
+        zarr_format=2,
+        backend_kwargs={"consolidated": False},
+    )
+    xr.testing.assert_equal(result, expected)
+
+
+def test_single_hdf5_to_zarr_from_open_file(
+    hdf_dataset,
+    opendal_fs,
+    opendal_root,
+):
+    """Build and read references through an explicit OpenDAL filesystem.
+
+    Adapted from kerchunk 0.2.10 ``tests/test_hdf.py::test_times``.
+    """
+    expected, payload = hdf_dataset
+    path = f"{opendal_root}/kerchunk-open-file/source.nc"
+    opendal_fs.pipe_file(path, payload)
+    source = opendal_fs.open(path, "rb")
+    translator = kerchunk_hdf.SingleHdf5ToZarr(source, path)
 
     try:
         references = translator.translate()

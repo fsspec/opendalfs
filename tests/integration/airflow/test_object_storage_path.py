@@ -6,9 +6,15 @@ airflow_sdk = pytest.importorskip("airflow.sdk")
 airflow_store = pytest.importorskip("airflow.sdk.io.store")
 
 
-def test_attached_object_storage_path_read_write(opendal_fs, opendal_root):
-    protocol = opendal_fs.protocol
-    conn_id = "opendal"
+def test_attached_object_storage_path_read_write(
+    opendal_backend,
+    opendal_fs,
+    opendal_root,
+):
+    # ObjectStoragePath requires a protocol known to UPath. The attached
+    # OpenDAL filesystem still performs every storage operation.
+    protocol = "memory"
+    conn_id = f"opendal-{opendal_backend}"
     airflow_store.attach(protocol, conn_id=conn_id, fs=opendal_fs)
     path = airflow_sdk.ObjectStoragePath(
         f"{opendal_root}/airflow/file.txt",

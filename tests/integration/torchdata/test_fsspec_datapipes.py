@@ -9,8 +9,8 @@ torchdata_iter = pytest.importorskip(
 )
 
 
-def test_list_and_open_files_by_fsspec(opendal_url):
-    root = f"{opendal_url}/torchdata"
+def test_list_and_open_files_by_fsspec(opendal_s3_url):
+    root = f"{opendal_s3_url}/torchdata"
     expected = {"one.txt": "one", "two.txt": "two"}
 
     for name, content in expected.items():
