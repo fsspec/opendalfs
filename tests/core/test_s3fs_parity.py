@@ -31,3 +31,21 @@ def test_file_url_behavior_matches_s3fs(s3_fs, s3fs_fs, s3_config):
     )
 
     assert actual == expected
+
+
+def test_standard_s3_url_and_options_match_s3fs(standard_s3_fs, s3fs_fs, s3_config):
+    bucket = s3_config.bucket
+    expected = _file_behavior(
+        s3fs_fs,
+        url=f"s3://{bucket}/standard-parity/file.txt",
+        path=f"{bucket}/standard-parity/file.txt",
+        name_prefix=f"{bucket}/",
+    )
+    actual = _file_behavior(
+        standard_s3_fs,
+        url=f"s3://{bucket}/standard-parity/file.txt",
+        path=f"{bucket}/standard-parity/file.txt",
+        name_prefix=f"{bucket}/",
+    )
+
+    assert actual == expected

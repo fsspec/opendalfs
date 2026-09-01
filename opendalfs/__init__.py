@@ -1,8 +1,7 @@
 from .fs import OpendalFileSystem
-from .registry import register_opendal_protocols, register_opendal_service
+from .registry import S3FileSystem
 
 __all__ = [
     "OpendalFileSystem",
-    "register_opendal_protocols",
-    "register_opendal_service",
+    "S3FileSystem",
 ]
