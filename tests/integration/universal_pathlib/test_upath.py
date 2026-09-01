@@ -12,7 +12,7 @@ from upath import UPath
 from opendalfs import S3FileSystem
 
 
-def test_upath_protocol_read_write_and_listing(
+def test_upath_s3_protocol_read_write_and_listing(
     s3_config,
     tmp_path,
     monkeypatch,
