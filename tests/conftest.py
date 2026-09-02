@@ -65,11 +65,12 @@ def standard_s3_fs(s3_fs, s3_config):
     import fsspec
 
     fsspec.register_implementation("s3", S3FileSystem, clobber=True)
-    fs = fsspec.filesystem(
-        "s3",
-        bucket=s3_config.bucket,
+    fs, _ = fsspec.core.url_to_fs(
+        f"s3://{s3_config.bucket}",
         key=s3_config.access_key_id,
         secret=s3_config.secret_access_key,
+        anon=False,
+        requester_pays=False,
         client_kwargs={
             "region_name": s3_config.region,
         },

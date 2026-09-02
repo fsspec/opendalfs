@@ -13,7 +13,6 @@ class _ScopedMemoryFileSystem(_OpendalServiceFileSystem):
     """Memory backend with a bucket-shaped external namespace for path tests."""
 
     protocol = "opendal+memory"
-    _service = "memory"
     _authority_option = "bucket"
 
     def __init__(self, *args, **kwargs):

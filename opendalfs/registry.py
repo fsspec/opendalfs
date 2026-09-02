@@ -9,11 +9,12 @@ from .fs import OpendalFileSystem
 
 class _OpendalServiceFileSystem(OpendalFileSystem):
     protocol: ClassVar[str]
-    _service: ClassVar[str]
     _authority_option: ClassVar[str]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(self._service, *args, **kwargs)
+        kwargs.pop("scheme", None)
+        service = self.protocol.removeprefix("opendal+")
+        super().__init__(service, *args, **kwargs)
 
     @property
     def _authority(self) -> str:
@@ -61,19 +62,16 @@ class _OpendalServiceFileSystem(OpendalFileSystem):
 
 class OpendalS3FileSystem(_OpendalServiceFileSystem):
     protocol = "opendal+s3"
-    _service = "s3"
     _authority_option = "bucket"
 
 
 class OpendalGCSFileSystem(_OpendalServiceFileSystem):
     protocol = "opendal+gcs"
-    _service = "gcs"
     _authority_option = "bucket"
 
 
 class OpendalAzBlobFileSystem(_OpendalServiceFileSystem):
     protocol = "opendal+azblob"
-    _service = "azblob"
     _authority_option = "container"
 
 
@@ -92,15 +90,20 @@ _S3FS_CLIENT_OPTION_ALIASES = {
     "endpoint_url": "endpoint",
     "region_name": "region",
 }
+_S3FS_BOOLEAN_OPTIONS = {"anon", "requester_pays"}
 
 
 def _translate_s3fs_options(options: dict[str, Any]) -> dict[str, Any]:
     translated = options.copy()
     for s3fs_name, opendal_name in _S3FS_OPTION_ALIASES.items():
         if (value := translated.pop(s3fs_name, None)) is not None:
+            if s3fs_name in _S3FS_BOOLEAN_OPTIONS and isinstance(value, bool):
+                value = str(value).lower()
             translated.setdefault(opendal_name, value)
 
-    client_options = translated.pop("client_kwargs", {}) or {}
+    client_options = translated.pop("client_kwargs", None)
+    if client_options is None:
+        client_options = {}
     if not isinstance(client_options, Mapping):
         raise TypeError("S3 option 'client_kwargs' must be a mapping")
     client_options = dict(client_options)
@@ -137,6 +140,17 @@ class S3FileSystem(OpendalS3FileSystem):
     @property
     def _authority(self) -> str:
         return self._bucket
+
+    def _to_operator_path(self, path: str) -> str:
+        path = OpendalFileSystem._to_operator_path(self, path)
+        if not path or path == self._authority:
+            return ""
+        prefix = f"{self._authority}/"
+        if self._authority and path.startswith(prefix):
+            return path[len(prefix) :]
+        raise ValueError(
+            f"S3 path {path!r} does not belong to bucket {self._authority!r}"
+        )
 
     def unstrip_protocol(self, name: str) -> str:
         return OpendalFileSystem.unstrip_protocol(self, name)

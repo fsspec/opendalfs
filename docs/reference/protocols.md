@@ -33,6 +33,7 @@ fsspec.register_implementation("s3", S3FileSystem, clobber=True)
 
 This explicit process-wide operation is the only way opendalfs changes the
 meaning of a standard protocol. The adapter accepts the common s3fs constructor
-options listed in {doc}`configuration`.
+options listed in {doc}`configuration`. Each adapter instance is scoped to one
+bucket; a multi-path operation spanning buckets raises `ValueError`.
 
 See {doc}`../user-guide/connecting-to-storage` for complete examples.
