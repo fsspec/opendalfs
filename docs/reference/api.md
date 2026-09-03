@@ -1,6 +1,6 @@
 # API reference
 
-The public API contains the filesystem class and runtime registration helpers.
+The public API contains the generic filesystem and the opt-in S3 adapter.
 Inherited filesystem operations follow the
 {class}`fsspec.spec.AbstractFileSystem` and
 {class}`fsspec.asyn.AsyncFileSystem` contracts.
@@ -11,12 +11,6 @@ Inherited filesystem operations follow the
 .. autoclass:: opendalfs.OpendalFileSystem
    :members:
    :show-inheritance:
-```
 
-## Protocol registration
-
-```{eval-rst}
-.. autofunction:: opendalfs.register_opendal_service
-
-.. autofunction:: opendalfs.register_opendal_protocols
+.. autoclass:: opendalfs.S3FileSystem
 ```

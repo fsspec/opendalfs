@@ -48,6 +48,25 @@ fs = OpendalFileSystem(
 Use the [OpenDAL service directory](https://opendal.apache.org/services/) as the
 configuration reference. Option names pass through unchanged.
 
+The `S3FileSystem` adapter accepts these common `s3fs` aliases:
+
+| s3fs option | OpenDAL S3 option |
+| --- | --- |
+| `key` | `access_key_id` |
+| `secret` | `secret_access_key` |
+| `token` | `session_token` |
+| `anon` | `skip_signature` |
+| `endpoint_url` | `endpoint` |
+| `requester_pays` | `enable_request_payer` |
+| `client_kwargs.aws_access_key_id` | `access_key_id` |
+| `client_kwargs.aws_secret_access_key` | `secret_access_key` |
+| `client_kwargs.aws_session_token` | `session_token` |
+| `client_kwargs.endpoint_url` | `endpoint` |
+| `client_kwargs.region_name` | `region` |
+
+OpenDAL option names take precedence when both forms are provided.
+Unsupported nested `client_kwargs` raise `TypeError`.
+
 ## URL-derived settings
 
 Registered service adapters can derive one setting from the URL authority. For

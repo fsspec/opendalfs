@@ -6,15 +6,29 @@ Source: universal-pathlib 0.3.10,
 ``test_write_text`` and ``test_write_bytes``).
 """
 
+import fsspec.config
 from upath import UPath
 
+from opendalfs import S3FileSystem
 
-def test_upath_protocol_read_write_and_listing(opendal_fs, opendal_root):
-    root = UPath(
-        f"{opendal_root}/universal-pathlib",
-        protocol=opendal_fs.protocol,
-        **opendal_fs.storage_options,
+
+def test_upath_s3_protocol_read_write_and_listing(
+    s3_config,
+    tmp_path,
+    monkeypatch,
+):
+    fsspec.register_implementation("s3", S3FileSystem, clobber=True)
+    monkeypatch.setitem(
+        fsspec.config.conf,
+        "s3",
+        {
+            "endpoint_url": s3_config.endpoint,
+            "client_kwargs": {"region_name": s3_config.region},
+            "key": s3_config.access_key_id,
+            "secret": s3_config.secret_access_key,
+        },
     )
+    root = UPath(f"s3://{s3_config.bucket}/integration/{tmp_path.name}")
 
     folder = root / "folder1"
     folder.mkdir(parents=True)

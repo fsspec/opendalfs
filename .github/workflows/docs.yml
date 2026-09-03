@@ -37,7 +37,9 @@ jobs:
         run: just docs
 
       - name: Run documentation examples
-        run: just docs-examples
+        env:
+          UV_NO_SYNC: "1"
+        run: just integration docs/check_examples.py
 
   integration-examples:
     name: Integration examples (${{ matrix.name }})
@@ -67,10 +69,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
+
       - name: Install integration dependencies
         run: uv sync --locked --dev --group ${{ matrix.group }}
 
       - name: Run integration page examples
         env:
           DOCS_EXAMPLE_GROUP: ${{ matrix.group }}
-        run: uv run --no-sync pytest -q docs/check_examples.py
+          UV_NO_SYNC: "1"
+        run: just integration docs/check_examples.py

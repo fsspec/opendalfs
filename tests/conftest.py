@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from botocore.exceptions import EndpointConnectionError
 
-from opendalfs import OpendalFileSystem
+from opendalfs import OpendalFileSystem, S3FileSystem
 from opendalfs.registry import OpendalS3FileSystem
 from tests.utils.s3 import S3Config, cleanup_bucket, create_test_bucket, get_s3_client
 
@@ -57,6 +57,28 @@ def s3fs_fs(s3_fs, s3_config):
         use_listings_cache=False,
         skip_instance_cache=True,
     )
+
+
+@pytest.fixture
+def standard_s3_fs(s3_fs, s3_config):
+    """Explicitly route an s3fs-shaped configuration through OpenDAL."""
+    import fsspec
+
+    fsspec.register_implementation("s3", S3FileSystem, clobber=True)
+    fs, _ = fsspec.core.url_to_fs(
+        f"s3://{s3_config.bucket}",
+        key=s3_config.access_key_id,
+        secret=s3_config.secret_access_key,
+        anon=False,
+        requester_pays=False,
+        client_kwargs={
+            "region_name": s3_config.region,
+        },
+        endpoint_url=s3_config.endpoint,
+        use_listings_cache=False,
+        skip_instance_cache=True,
+    )
+    return fs
 
 
 @pytest.fixture

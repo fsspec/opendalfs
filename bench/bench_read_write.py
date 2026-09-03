@@ -158,7 +158,6 @@ def _run_arrow_fsspec_opendalfs(config: dict[str, str], args, size_mb: int) -> N
 
     import opendalfs
 
-    opendalfs.register_opendal_protocols(["s3"])
     backend = opendalfs.OpendalFileSystem(
         "s3",
         bucket=config["bucket"],

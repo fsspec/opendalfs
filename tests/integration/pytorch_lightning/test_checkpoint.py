@@ -28,9 +28,9 @@ class TinyModel(LightningModule):
         return torch.optim.SGD(self.parameters(), lr=0.1)
 
 
-def test_model_checkpoint_roundtrip_through_opendal_url(opendal_url):
+def test_model_checkpoint_roundtrip_through_opendal_url(opendal_s3_url):
     """Save and load a Lightning checkpoint through its fsspec URL entry point."""
-    checkpoint_dir = f"{opendal_url}/checkpoints"
+    checkpoint_dir = f"{opendal_s3_url}/checkpoints"
     checkpoint = ModelCheckpoint(
         dirpath=checkpoint_dir,
         filename="model",

@@ -38,63 +38,41 @@ fs = fsspec.filesystem(
 )
 ```
 
-## Register another OpenDAL service
+## Keep an existing S3 URL
 
-Other OpenDAL services can be registered for the current Python process. The
-memory service keeps this example credential-free:
-
-```python
-from opendalfs import register_opendal_service
-
-protocol = register_opendal_service("memory")
-fs = fsspec.filesystem(protocol)
-```
-
-Register several services together when an application needs them during
-startup:
-
-```python
-from opendalfs import register_opendal_protocols
-
-protocols = register_opendal_protocols(["memory", "fs", "oss"])
-```
-
-Repeating a registration is safe. Libraries that create their filesystem while
-loading a dataset, catalog, or path object need registration to happen first.
-
-## Pass a URL to another library
-
-Libraries such as pandas and Dask usually accept an fsspec URL. This complete
-example uses the memory service so it can run without credentials:
+Applications that cannot rewrite existing `s3://` URLs can explicitly replace fsspec's S3 implementation:
 
 ```python
 import fsspec
-import pandas as pd
+from opendalfs import S3FileSystem
 
-from opendalfs import register_opendal_service
+fsspec.register_implementation("s3", S3FileSystem, clobber=True)
 
-protocol = register_opendal_service("memory")
-fs = fsspec.filesystem(protocol)
-fs.pipe_file("data/table.csv", b"name,value\nalice,1\nbob,2\n")
-
-frame = pd.read_csv("opendal+memory:///data/table.csv")
-assert frame["value"].tolist() == [1, 2]
+fs, path = fsspec.core.url_to_fs(
+    "s3://my-bucket/reports/2026.csv",
+    key="access-key",
+    secret="secret-key",
+    client_kwargs={"region_name": "us-east-1"},
+)
 ```
 
-For a configured S3 service, use a URL such as
-`opendal+s3://my-bucket/data/table.parquet` and pass options such as `region`
-through `storage_options`. Do not repeat `bucket` in `storage_options` when it
-is already present in the URL.
+The registration call is process-wide and should run during application startup, before constructing an S3 filesystem.
+`S3FileSystem` translates common s3fs names such as `key`, `secret`, `token`, `anon`, and supported `client_kwargs`.
+Installing `opendalfs` alone never changes `s3://`.
 
-## Understand the URL
+An OpenDAL S3 operator is scoped to one bucket, so each `S3FileSystem` instance is also scoped to one bucket.
+Independent fsspec calls can use different buckets.
+A single multi-path operation spanning buckets raises `ValueError` instead of sending a path to the wrong bucket.
 
-An `opendalfs` URL uses this form:
+## Understand OpenDAL URLs
+
+The installed URL protocols use this form:
 
 ```text
 opendal+<service>://<authority>/<path>
 ```
 
-Object stores use the authority as their bucket or container:
+The authority supplies the bucket or container:
 
 ```text
 opendal+s3://my-bucket/reports/2026.csv
@@ -102,16 +80,8 @@ opendal+gcs://my-bucket/reports/2026.csv
 opendal+azblob://my-container/reports/2026.csv
 ```
 
-Services without a bucket-like scope use a hostless URL:
-
-```text
-opendal+memory:///cache/item.bin
-opendal+fs:///reports/2026.csv
-```
-
-The three slashes preserve the root-relative path while leaving the authority
-empty. Service options belong in keyword arguments or `storage_options`, not in
-the URL query string.
+Other OpenDAL services intentionally have no URL adapter.
+Construct `OpendalFileSystem` directly and pass the filesystem, mapping, or opened file to the consuming library.
 
 ## Find service options
 
@@ -119,13 +89,9 @@ OpenDAL maintains the configuration reference for every service. Consult the
 [OpenDAL service directory](https://opendal.apache.org/services/) for option
 names, required fields, credential behavior, and backend-specific notes.
 
-`opendalfs` does not rename those options. For example, OpenDAL's
-`access_key_id`, `secret_access_key`, and `endpoint` options use the same names
-when passed through fsspec.
+The installed `opendal+...` protocols pass OpenDAL option names through unchanged.
+The opt-in `S3FileSystem` adapter accepts the common s3fs aliases listed in {doc}`../reference/configuration`.
 
 Keep credentials outside source code. Read them from the provider's standard
 environment, a secret manager, or environment variables that your application
 passes into `storage_options`.
-
-See {doc}`../reference/protocols` for the full list of authority mappings known
-to the runtime registration helper.

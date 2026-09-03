@@ -2,19 +2,12 @@ import fsspec
 import fsspec.config
 import pytest
 
-from opendalfs import register_opendal_service
+from opendalfs import OpendalFileSystem
 
 
 @pytest.fixture(params=("memory", "fs", "s3"))
 def opendal_backend(request):
     return request.param
-
-
-@pytest.fixture
-def opendal_protocol(opendal_backend):
-    if opendal_backend == "s3":
-        return "opendal+s3"
-    return register_opendal_service(opendal_backend)
 
 
 @pytest.fixture
@@ -37,27 +30,17 @@ def opendal_storage_options(opendal_backend, tmp_path, s3_config):
 def opendal_fs(
     request,
     opendal_backend,
-    opendal_protocol,
     opendal_storage_options,
-    monkeypatch,
 ):
     if opendal_backend == "s3":
-        fs = request.getfixturevalue("s3_fs")
-    else:
-        fs = fsspec.filesystem(opendal_protocol, **opendal_storage_options)
-
-    monkeypatch.setitem(
-        fsspec.config.conf,
-        opendal_protocol,
-        opendal_storage_options,
-    )
-    return fs
+        return request.getfixturevalue("s3_fs")
+    return OpendalFileSystem(opendal_backend, **opendal_storage_options)
 
 
 @pytest.fixture
-def opendal_root(tmp_path, opendal_fs):
+def opendal_root(tmp_path, opendal_fs, opendal_backend, s3_config):
     base_path = f"integration/{tmp_path.name}"
-    root = fsspec.core.strip_protocol(opendal_fs.unstrip_protocol(base_path))
+    root = f"{s3_config.bucket}/{base_path}" if opendal_backend == "s3" else base_path
     yield root
 
     if opendal_fs.exists(root):
@@ -65,8 +48,25 @@ def opendal_root(tmp_path, opendal_fs):
 
 
 @pytest.fixture
-def opendal_url(
-    opendal_root,
-    opendal_fs,
+def opendal_s3_storage_options(s3_fs):
+    return s3_fs.storage_options
+
+
+@pytest.fixture
+def opendal_s3_root(tmp_path, s3_config):
+    return f"{s3_config.bucket}/integration/{tmp_path.name}"
+
+
+@pytest.fixture
+def opendal_s3_url(
+    s3_fs,
+    opendal_s3_root,
+    opendal_s3_storage_options,
+    monkeypatch,
 ):
-    return opendal_fs.unstrip_protocol(opendal_root)
+    monkeypatch.setitem(
+        fsspec.config.conf,
+        "opendal+s3",
+        opendal_s3_storage_options,
+    )
+    return s3_fs.unstrip_protocol(opendal_s3_root)

@@ -1,29 +1,23 @@
 # pandas
 
-pandas accepts fsspec URLs through `storage_options`. Its Parquet methods can
-also accept an explicit fsspec filesystem.
+pandas accepts file-like objects and explicit fsspec filesystems.
+Its URL APIs can also use the installed `opendal+s3`, `opendal+gcs`, and `opendal+azblob` protocols.
 
-## Read a CSV from a URL
+## Read a CSV from a file-like object
 
-Register the memory service and create a small input file. The same URL pattern
-works for configured storage services.
+Construct any OpenDAL service directly and pass its opened file to pandas:
 
 ```python
-import fsspec
 import pandas as pd
+from opendalfs import OpendalFileSystem
 
-from opendalfs import register_opendal_service
-
-protocol = register_opendal_service("memory")
-fs = fsspec.filesystem(protocol)
+fs = OpendalFileSystem("memory")
 fs.pipe_file("data/events.csv", b"name,value\nalice,1\nbob,2\n")
 
-frame = pd.read_csv("opendal+memory:///data/events.csv")
+with fs.open("data/events.csv", "rb") as stream:
+    frame = pd.read_csv(stream)
 assert frame["value"].tolist() == [1, 2]
 ```
-
-For object stores, the bucket comes from the URL and other service options pass
-through `storage_options` to OpenDAL.
 
 ## Read and write Parquet with a filesystem
 
@@ -42,8 +36,7 @@ with bucket-scoped services.
 
 The repository tests:
 
-- CSV reads from an `opendal+` URL
-- Parquet URL round trips through PyArrow
+- CSV and Parquet URL operations through `opendal+s3`
 - Parquet round trips with an explicit filesystem
 
 The test runs against memory, local filesystem, and MinIO-backed S3 fixtures.

@@ -1,10 +1,6 @@
 # Protocol reference
 
-All protocols use the `opendal+<service>` prefix.
-
-## Installed entry points
-
-These protocols are available after installing `opendalfs`:
+`opendalfs` installs three fsspec entry points:
 
 | Protocol | OpenDAL service | URL authority |
 | --- | --- | --- |
@@ -12,37 +8,29 @@ These protocols are available after installing `opendalfs`:
 | `opendal+gcs` | `gcs` | `bucket` |
 | `opendal+azblob` | `azblob` | `container` |
 
-## Runtime protocols
+## Direct construction
 
-{func}`opendalfs.register_opendal_service` creates an fsspec implementation
-for another OpenDAL service. The following services have an authority mapping
-known to `opendalfs`:
+{class}`opendalfs.OpendalFileSystem` accepts the OpenDAL service as its first argument and supports services that do not have an installed URL protocol.
 
-| OpenDAL service | URL authority maps to |
-| --- | --- |
-| `aliyun-drive` | `drive_type` |
-| `azblob` | `container` |
-| `b2` | `bucket` |
-| `cos` | `bucket` |
-| `gcs` | `bucket` |
-| `obs` | `bucket` |
-| `oss` | `bucket` |
-| `s3` | `bucket` |
-| `tos` | `bucket` |
-| `upyun` | `bucket` |
+## Explicit OpenDAL URLs
 
-Other registered services use an empty URL authority and a root-relative path:
+The three `opendal+...` protocols fix the service.
+Their authority supplies the bucket or container, while the remaining URL is the operator-relative path.
+They accept OpenDAL option names unchanged.
 
-```text
-opendal+memory:///path/to/file
+## Opt-in S3 routing
+
+{class}`opendalfs.S3FileSystem` can replace fsspec's S3 implementation when an application must keep existing `s3://` URLs:
+
+```python
+import fsspec
+from opendalfs import S3FileSystem
+
+fsspec.register_implementation("s3", S3FileSystem, clobber=True)
 ```
 
-## URL reconstruction
+This explicit process-wide operation is the only way opendalfs changes the meaning of a standard protocol.
+The adapter accepts the common s3fs constructor options listed in {doc}`configuration`.
+Each adapter instance is scoped to one bucket; a multi-path operation spanning buckets raises `ValueError`.
 
-`strip_protocol` converts an fsspec URL into a filesystem-facing path.
-`unstrip_protocol` restores the protocol and, for a scoped service, its
-authority. Composite fsspec operations depend on this round trip when they
-expand globs or recurse into directories.
-
-See {doc}`../user-guide/connecting-to-storage` for an explanation of the path
-model and construction styles.
+See {doc}`../user-guide/connecting-to-storage` for complete examples.

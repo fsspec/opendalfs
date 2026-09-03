@@ -1,36 +1,17 @@
 # Dask
 
-Dask DataFrame resolves fsspec URLs for CSV and Parquet input. It also accepts
-an explicit filesystem for Parquet datasets.
-
-## Read a CSV glob
-
-```python
-import dask.dataframe as dd
-import fsspec
-
-from opendalfs import register_opendal_service
-
-protocol = register_opendal_service("memory")
-fs = fsspec.filesystem(protocol)
-fs.pipe_file("events/2026-01.csv", b"name,value\nalice,1\n")
-fs.pipe_file("events/2026-02.csv", b"name,value\nbob,2\n")
-
-frame = dd.read_csv("opendal+memory:///events/2026-*.csv")
-result = frame.compute()
-assert result["value"].tolist() == [1, 2]
-```
-
-The filesystem must support glob expansion and deterministic tokenization.
-Dask uses both while constructing the task graph.
+Dask DataFrame resolves installed fsspec URL protocols for CSV and Parquet input.
+Its Parquet APIs also accept an explicit filesystem, which works with every OpenDAL service.
 
 ## Read Parquet with a filesystem
 
 ```python
 import dask.dataframe as dd
 import pandas as pd
+from opendalfs import OpendalFileSystem
 
 expected = pd.DataFrame({"name": ["alice", "bob"], "value": [1, 2]})
+fs = OpendalFileSystem("memory")
 path = "tables/events.parquet"
 expected.to_parquet(path, filesystem=fs)
 
@@ -44,9 +25,8 @@ pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
 The repository tests:
 
-- CSV URL glob expansion
-- deterministic tokenization of repeated reads
-- Parquet reads from a URL
+- CSV URL glob expansion and deterministic tokenization through `opendal+s3`
+- Parquet reads from an `opendal+s3` URL
 - Parquet reads with an explicit filesystem
 
 See

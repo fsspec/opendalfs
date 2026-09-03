@@ -10,13 +10,11 @@ references as a Zarr-compatible store.
 ```python
 from pathlib import Path
 
-import fsspec
 import numpy as np
 import xarray as xr
 from kerchunk.hdf import SingleHdf5ToZarr
 from kerchunk.utils import refs_as_store
-
-from opendalfs import register_opendal_service
+from opendalfs import OpendalFileSystem
 
 expected = xr.DataArray(
     np.arange(6, dtype="float64").reshape(2, 3),
@@ -26,13 +24,12 @@ expected = xr.DataArray(
 local_path = Path("source.nc")
 expected.to_netcdf(local_path, engine="h5netcdf")
 
-protocol = register_opendal_service("memory")
-fs = fsspec.filesystem(protocol)
+fs = OpendalFileSystem("memory")
 path = "kerchunk/source.nc"
-url = fs.unstrip_protocol(path)
 fs.pipe_file(path, local_path.read_bytes())
 
-translator = SingleHdf5ToZarr(url)
+source = fs.open(path, "rb")
+translator = SingleHdf5ToZarr(source, path)
 try:
     references = translator.translate()
 finally:
