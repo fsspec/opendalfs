@@ -38,9 +38,9 @@ Use `fs.get_mapper(path)` for libraries that expect a mutable mapping, notably
 Zarr-based workflows. PyArrow has its own filesystem interface and provides an
 `FSSpecHandler` adapter.
 
-URL examples use the repository's MinIO defaults. Replace those local settings
-with your service configuration in an application. Start MinIO from the
-repository root before running the examples:
+URL examples use the repository's MinIO defaults.
+Replace those local settings with your service configuration in an application.
+Start MinIO from the repository root before running the examples:
 
 ```console
 podman compose up -d --wait

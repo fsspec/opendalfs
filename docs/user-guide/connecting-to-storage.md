@@ -40,8 +40,7 @@ fs = fsspec.filesystem(
 
 ## Keep an existing S3 URL
 
-Applications that cannot rewrite existing `s3://` URLs can explicitly replace
-fsspec's S3 implementation:
+Applications that cannot rewrite existing `s3://` URLs can explicitly replace fsspec's S3 implementation:
 
 ```python
 import fsspec
@@ -57,15 +56,13 @@ fs, path = fsspec.core.url_to_fs(
 )
 ```
 
-The registration call is process-wide and should run during application
-startup, before constructing an S3 filesystem. `S3FileSystem` translates common
-s3fs names such as `key`, `secret`, `token`, `anon`, and supported
-`client_kwargs`. Installing `opendalfs` alone never changes `s3://`.
+The registration call is process-wide and should run during application startup, before constructing an S3 filesystem.
+`S3FileSystem` translates common s3fs names such as `key`, `secret`, `token`, `anon`, and supported `client_kwargs`.
+Installing `opendalfs` alone never changes `s3://`.
 
-An OpenDAL S3 operator is scoped to one bucket, so each `S3FileSystem` instance
-is also scoped to one bucket. Independent fsspec calls can use different
-buckets. A single multi-path operation spanning buckets raises `ValueError`
-instead of sending a path to the wrong bucket.
+An OpenDAL S3 operator is scoped to one bucket, so each `S3FileSystem` instance is also scoped to one bucket.
+Independent fsspec calls can use different buckets.
+A single multi-path operation spanning buckets raises `ValueError` instead of sending a path to the wrong bucket.
 
 ## Understand OpenDAL URLs
 
@@ -83,9 +80,8 @@ opendal+gcs://my-bucket/reports/2026.csv
 opendal+azblob://my-container/reports/2026.csv
 ```
 
-Other OpenDAL services intentionally have no URL adapter. Construct
-`OpendalFileSystem` directly and pass the filesystem, mapping, or opened file to
-the consuming library.
+Other OpenDAL services intentionally have no URL adapter.
+Construct `OpendalFileSystem` directly and pass the filesystem, mapping, or opened file to the consuming library.
 
 ## Find service options
 
@@ -93,9 +89,8 @@ OpenDAL maintains the configuration reference for every service. Consult the
 [OpenDAL service directory](https://opendal.apache.org/services/) for option
 names, required fields, credential behavior, and backend-specific notes.
 
-The installed `opendal+...` protocols pass OpenDAL option names through
-unchanged. The opt-in `S3FileSystem` adapter accepts the common s3fs aliases
-listed in {doc}`../reference/configuration`.
+The installed `opendal+...` protocols pass OpenDAL option names through unchanged.
+The opt-in `S3FileSystem` adapter accepts the common s3fs aliases listed in {doc}`../reference/configuration`.
 
 Keep credentials outside source code. Read them from the provider's standard
 environment, a secret manager, or environment variables that your application

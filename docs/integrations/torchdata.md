@@ -2,9 +2,8 @@
 
 <!-- docs-example-group: integration-torchdata -->
 
-TorchData's fsspec DataPipes can list and open files through the installed
-`opendal+s3` protocol. TorchData 0.9 publishes compatible wheels for Python
-3.12.
+TorchData's fsspec DataPipes can list and open files through the installed `opendal+s3` protocol.
+TorchData 0.9 publishes compatible wheels for Python 3.12.
 
 ## List and open files
 

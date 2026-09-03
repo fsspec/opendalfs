@@ -47,7 +47,7 @@ with fs.open("demo/notes.txt", "rt") as stream:
 
 ## Connect real storage
 
-The filesystem operations do not change when you switch services. S3, GCS, and
-Azure Blob also provide fsspec URLs for libraries that require one. The next
-guide explains the available entry points and where service options go:
+The filesystem operations do not change when you switch services.
+S3, GCS, and Azure Blob also provide fsspec URLs for libraries that require one.
+The next guide explains the available entry points and where service options go:
 {doc}`connecting-to-storage`.

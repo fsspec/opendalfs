@@ -58,8 +58,7 @@ opendal+gcs://my-bucket/path/to/file
 opendal+azblob://my-container/path/to/file
 ```
 
-To keep an existing `s3://` URL, explicitly register the OpenDAL adapter with
-fsspec:
+To keep an existing `s3://` URL, explicitly register the OpenDAL adapter with fsspec:
 
 ```python
 import fsspec
@@ -68,12 +67,11 @@ from opendalfs import S3FileSystem
 fsspec.register_implementation("s3", S3FileSystem, clobber=True)
 ```
 
-Registration is process-wide and intentionally opt-in. Installing `opendalfs`
-does not change the implementation of `s3://`.
+Registration is process-wide and intentionally opt-in.
+Installing `opendalfs` does not change the implementation of `s3://`.
 
-Each `S3FileSystem` instance is scoped to one bucket. Separate filesystem
-instances can access different buckets, but one multi-path operation cannot
-span buckets.
+Each `S3FileSystem` instance is scoped to one bucket.
+Separate filesystem instances can access different buckets, but one multi-path operation cannot span buckets.
 
 OpenDAL service options are passed without being renamed; only the opt-in
 `S3FileSystem` adapter translates common `s3fs` names. See the

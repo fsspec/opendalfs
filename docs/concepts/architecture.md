@@ -6,8 +6,7 @@ Python data libraries.
 
 ## The request path
 
-When pandas opens an `s3` or `opendal+s3` URL, the request passes through these
-layers:
+When pandas opens an `s3` or `opendal+s3` URL, the request passes through these layers:
 
 ```text
 pandas
@@ -52,14 +51,12 @@ configuration, and the native capability of each service.
 
 ## One adapter model
 
-The installed protocol adapters share one filesystem implementation. Each
-adapter declares its fixed OpenDAL service and how the URL authority maps to
-that service's scope. Other services use `OpendalFileSystem` directly.
+The installed protocol adapters share one filesystem implementation.
+Each adapter declares its fixed OpenDAL service and how the URL authority maps to that service's scope.
+Other services use `OpendalFileSystem` directly.
 
-`S3FileSystem` accepts common `s3fs` constructor names and preserves the
-bucket-in-path convention expected by standard `s3://` consumers. Applications
-can register that class through fsspec when they intentionally want OpenDAL to
-handle `s3://`.
+`S3FileSystem` accepts common `s3fs` constructor names and preserves the bucket-in-path convention expected by standard `s3://` consumers.
+Applications can register that class through fsspec when they intentionally want OpenDAL to handle `s3://`.
 
 ## Why integrations work
 

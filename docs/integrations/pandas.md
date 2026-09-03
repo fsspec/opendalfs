@@ -1,8 +1,7 @@
 # pandas
 
-pandas accepts file-like objects and explicit fsspec filesystems. Its URL APIs
-can also use the installed `opendal+s3`, `opendal+gcs`, and `opendal+azblob`
-protocols.
+pandas accepts file-like objects and explicit fsspec filesystems.
+Its URL APIs can also use the installed `opendal+s3`, `opendal+gcs`, and `opendal+azblob` protocols.
 
 ## Read a CSV from a file-like object
 

@@ -64,8 +64,8 @@ The `S3FileSystem` adapter accepts these common `s3fs` aliases:
 | `client_kwargs.endpoint_url` | `endpoint` |
 | `client_kwargs.region_name` | `region` |
 
-OpenDAL option names take precedence when both forms are provided. Unsupported
-nested `client_kwargs` raise `TypeError`.
+OpenDAL option names take precedence when both forms are provided.
+Unsupported nested `client_kwargs` raise `TypeError`.
 
 ## URL-derived settings
 

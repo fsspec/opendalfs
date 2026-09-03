@@ -18,8 +18,7 @@ Install `opendalfs` and complete a small read and write workflow.
 :link: connecting-to-storage
 :link-type: doc
 
-Choose between direct construction, installed OpenDAL URLs, and opt-in S3
-routing.
+Choose between direct construction, installed OpenDAL URLs, and opt-in S3 routing.
 :::
 
 :::{grid-item-card} Work with files

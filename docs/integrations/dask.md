@@ -1,8 +1,7 @@
 # Dask
 
-Dask DataFrame resolves installed fsspec URL protocols for CSV and Parquet
-input. Its Parquet APIs also accept an explicit filesystem, which works with
-every OpenDAL service.
+Dask DataFrame resolves installed fsspec URL protocols for CSV and Parquet input.
+Its Parquet APIs also accept an explicit filesystem, which works with every OpenDAL service.
 
 ## Read Parquet with a filesystem
 
